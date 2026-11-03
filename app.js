@@ -327,7 +327,7 @@ function tradeStats(st, trs) { const sells = trs.filter(t => t.side === 'sell'),
   const base = 50, mult = st.balance / base;
   return { sells, wins, buys, openB, mult, wr: sells.length ? Math.round(wins / sells.length * 100) : null }; }
 async function trades() {
-  const [st, ch, fd, ac, dp] = await Promise.all([api('state'), api('chart?range=ALL'), api('feed').catch(() => null), api('activity').catch(() => ({ rows: [] })), api('dip').catch(() => null)]); S.state = st; setStatus(st.mode);
+  const [st, ch, fd, ac] = await Promise.all([api('state'), api('chart?range=ALL'), api('feed').catch(() => null), api('activity').catch(() => ({ rows: [] }))]); S.state = st; const dp = st.dip; setStatus(st.mode);
   const trs = ch.trades || [], T = tradeStats(st, trs), up = T.mult >= 1;
   const tr = (t, sell) => `<a class="arow" href="#/coin/${esc(t.mint)}">${tokImg(t.mint, t.symbol)}<div class="am"><div><i class="tag ${sell ? ((t.pnl_usd || 0) >= 0 ? 'g' : 'r') : 'g'}">${sell ? 'VENTA' : 'COMPRA'}</i> ${esc(t.symbol || short(t.mint))}</div><div>${tmB(t.ts)}${t.reason ? ' · ' + esc(t.reason) : ''}</div></div><div class="av"><div style="color:${!sell ? '#fff' : (t.pnl_usd || 0) >= 0 ? '#00E676' : '#FF3B30'}">${sell ? `${t.pnl_usd >= 0 ? '+' : '−'}$${Math.abs(t.pnl_usd).toFixed(2)}` : 'abierta'}</div><div class="avs">${sell && t.pnl_pct != null ? t.pnl_pct + '%' : ''}</div></div></a>`;
   V.innerHTML = `<div class="thero">${botSvg('executor', 150, 'bigbot')}<div class="tst"><div class="lbl2">Saldo real</div><div class="bal big tb" id="bal"></div>
