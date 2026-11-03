@@ -64,7 +64,7 @@ function actRow(r) {
   const sub = (r.subtitle || '').replace(/^[^·]*·\s*/, '');
   const m = String(r.value).match(/\$\s?([\d.,]+)/), bal = S.state && S.state.balance;
   const pct = m && bal && (r.kind === 'bought' || r.kind === 'sold' || r.kind === 'stopped') ? `${(parseFloat(m[1].replace(/,/g, '')) / bal * 100).toFixed(1)}% del stack` : esc(sub);
-  return `<a class="arow${isNew ? ' slide' : ''}" href="${href}">${tokImg(r.mint, sym)}<div class="am"><div><b>${esc(lab)} ${esc(sym)}</b></div><div>${esc(AGL[r.agent] || r.agent || '')} · ${r.ts ? tmB(r.ts) : ''}</div></div><div class="av"><div style="color:${col}">${esc(r.value)}</div><div class="avs">${pct}</div></div></a>`;
+  return `<a class="arow${isNew ? ' slide' : ''}" href="${href}">${tokImg(r.mint, sym)}<div class="am"><div><b>${esc(lab)} ${esc(sym)}</b></div><div>${esc(AGL[r.agent] || r.agent || '')} · ${r.ts ? tmB(r.ts) : ''}</div></div><div class="av"><div style="color:${col}">${esc(r.value === 'Skipped' ? 'Descartada' : r.value)}</div><div class="avs">${pct}</div></div></a>`;
 }
 function saveSeen() { sessionStorage.setItem('seen_rows', JSON.stringify([...seen].slice(-300))); }
 function setStatus(mode, busy) { const p = $('#stat'); if (!p) return; const auto = mode && mode !== 'PAPER';
