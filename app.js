@@ -70,9 +70,9 @@ async function home() {
   const med = pcts.length ? pcts[Math.floor(pcts.length / 2)] : null;
   const rej = A('auditor').rejected || 0, scanned = A('scanner').count || 0, buys = A('executor').count || 0;
   const fees = rows.filter(r => r.kind === 'fee');
-  const pnl = st.balance - st.start_value, up = pnl >= 0;
+  const pnl = st.balance - (st.start_value || st.balance), up = pnl >= 0;
   V.innerHTML = `<div class="hero"><div class="hl"><span>Desk • <span class="mono">${short(WALLET)}</span></span><span id="clock" class="mono">${BOG(Date.now())}</span></div>
-   <div class="bal big" id="bal"></div><div class="pnl" style="color:${up ? '#34C759' : '#FF4500'}">${up ? '+' : '−'}${usd(Math.abs(pnl))} (${up ? '+' : ''}${st.today_pct.toFixed(2)}%) <span>hoy</span></div></div>
+   <div class="bal big" id="bal"></div><div class="pnl" style="color:${up ? '#34C759' : '#FF4500'}">${up ? '+' : '−'}${usd(Math.abs(pnl))} (${up ? '+' : ''}${st.today_pct.toFixed(2)}%) <span>hoy</span></div>${st.real && st.sol != null ? `<div class="solln mono">${Number(st.sol).toFixed(4)} SOL · 1 SOL = ${usd(st.sol_price)} · dinero real</div>` : ''}</div>
    <canvas id="line"></canvas><div class="rg">${Object.keys(RANGES).map(r => `<button data-r="${r}" class="${r === S.range ? 'on' : ''}">${r}</button>`).join('')}</div>
    <h3>El desk hoy</h3><div class="grid">
     <div class="st"><div class="si" style="color:#34C759">◎</div><div class="sl">Escaneadas</div><div class="sv">${scanned}</div><div class="ss">${A('scanner').waiting || 0} en espera</div></div>

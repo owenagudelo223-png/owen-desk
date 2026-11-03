@@ -128,3 +128,4 @@ h3 a{font-size:15px;color:var(--g);font-weight:500}
  .feedl{padding:4px 18px}
  #splash .term{font-size:14px}
 }
+.solln{color:#8E8E93;font-size:12.5px;margin:-6px 0 10px}@media(min-width:900px){.solln{grid-column:1/-1}}
