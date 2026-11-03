@@ -168,3 +168,10 @@ html,body{font-family:Inter,-apple-system,"SF Pro Text",system-ui,sans-serif;fon
 @media(min-width:900px){.mobonly{display:none}}
 .rl{display:block;font-weight:600}.row small{display:block;color:#8E8E93;font-size:12px;font-weight:400;margin-top:1px}.row>span:first-child{padding-right:10px}
 .sv2{font-weight:700;white-space:nowrap}.note{color:#8E8E93;font-size:13px;text-align:center;margin:12px 0}
+
+.tmk{position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%) scale(0);animation:tpop .45s cubic-bezier(.34,1.8,.5,1) forwards;box-shadow:0 0 0 2px #000}
+.tmk.buy{background:#8EF5B8}.tmk.g{background:#00E676}.tmk.r{background:#FF3B30}
+.tbadge{position:absolute;white-space:nowrap;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;transform:translate(var(--ax,-50%),-50%) scale(0);animation:bpop .5s cubic-bezier(.34,1.8,.5,1) forwards}
+.tbadge.g{background:#00E676;color:#000}.tbadge.r{background:#FF3B30;color:#fff}
+@keyframes tpop{to{transform:translate(-50%,-50%) scale(1)}}@keyframes bpop{to{transform:translate(var(--ax,-50%),-50%) scale(1)}}
+@media (prefers-reduced-motion: reduce){.tmk{animation:none;transform:translate(-50%,-50%)}.tbadge{animation:none;transform:translate(var(--ax,-50%),-50%)}}

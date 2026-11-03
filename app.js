@@ -97,6 +97,24 @@ function agMini(a) { const [n, ic] = AG[a.name] || [a.name, '•']; const [sl, s
       : a.name === 'executor' ? [a.count, `${a.stack_pct}% del stack por operación`, a.progress != null ? a.progress : a.last ? 100 : 0] : [a.open, `stop -${a.stop_pct}% · trail ${a.trail_pct}%`, a.open ? 100 : 0];
     body = `<div class="mb">${big}</div><div class="ms">${esc(lab)}</div><div class="pbar"><i style="width:${pct}%"></i></div>`; }
   return `<div class="mini"><div class="mh"><span class="mic">${ic}</span><b>${n}</b><span class="sd" style="background:${sc}" title="${sl}"></span></div>${body}</div>`; }
+function tradeMarks(ch) {
+  // Real trade markers on the line (ts in visible range only). Same scales as Charts.line.
+  const el = $('#pills'), pts = ch.points || [], tr = Array.isArray(ch.trades) ? ch.trades : []; if (!el) return; el.innerHTML = '';
+  if (pts.length < 1 || !tr.length) return;
+  const cv = $('#line'), h = cv.clientHeight || 220, w = cv.clientWidth || 1, top = 20, bot = h - 8;
+  const t0 = pts[0][0], t1 = Math.max(pts[pts.length - 1][0], t0 + 1);
+  let lo = Math.min(ch.start, ...pts.map(p => p[1])), hi = Math.max(ch.start, ...pts.map(p => p[1])); if (hi - lo < 1e-9) { hi += 1; lo -= 1; }
+  const valAt = t => { let i = pts.findIndex(p => p[0] >= t); if (i <= 0) return pts[i < 0 ? pts.length - 1 : 0][1]; const [a, b] = [pts[i - 1], pts[i]]; return a[1] + (b[1] - a[1]) * (t - a[0]) / Math.max(1e-9, b[0] - a[0]); };
+  const f2 = v => (v < 0 ? '-' : '+') + '$' + Math.abs(v).toFixed(2);
+  el.innerHTML = tr.filter(t => t.ts >= t0 && t.ts <= t1 + 120).map((t, i) => {
+    const x = (Math.min(t.ts, t1) - t0) / (t1 - t0) * w, y = bot - (valAt(t.ts) - lo) / (hi - lo) * (bot - top);
+    const tip = esc((t.symbol || '') + ' ' + t.side + ' ' + tm(t.ts));
+    if (t.side === 'buy') return `<span class="tmk buy" title="${tip}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;animation-delay:${600 + i * 80}ms"></span>`;
+    const p = Number(t.pnl_usd) || 0, win = p >= 0, txt = win ? f2(p) : (t.pnl_pct != null ? Math.round(t.pnl_pct) + '% · ' : '') + f2(p);
+    const lx = Math.max(4, Math.min(x, w - 4));
+    return `<span class="tmk dot ${win ? 'g' : 'r'}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;animation-delay:${600 + i * 80}ms"></span><span class="tbadge ${win ? 'g' : 'r'}" title="${tip}" style="left:${lx.toFixed(1)}px;top:${(y - 22).toFixed(1)}px;--ax:${x < 50 ? '0%' : x > w - 50 ? '-100%' : '-50%'};animation-delay:${600 + i * 80}ms">${esc(txt)}</span>`;
+  }).join('');
+}
 async function home() {
   const [st, ch, ac, acct] = await Promise.all([api('state'), api('chart?range=' + RANGES[S.range]), api('activity'), WALLET ? Promise.resolve(null) : api('account').catch(() => null)]); S.state = st;
   if (acct && acct.wallet) WALLET = acct.wallet.address;
@@ -124,9 +142,7 @@ async function home() {
    <aside class="deskonly"><h3>Agentes <span class="apill">${act} de ${st.agents.length} activos</span></h3>${st.agents.map(a => agCard(a, null)).join('')}</aside></div>`;
   saveSeen(); setStatus(st.mode);
   odometer($('#bal'), st.balance); Charts.line($('#line'), ch.points, ch.start, []);
-  const pts = ch.points; if (pts.length > 1) { const t0 = pts[0][0], t1 = pts[pts.length - 1][0] || t0 + 1;
-    $('#pills').innerHTML = (ch.marks || []).filter(m => m.kind !== 'bought' && m.ts >= t0).map((m, i) => { const p = ((m.ts - t0) / Math.max(1, t1 - t0) * 100).toFixed(1);
-      return `<span class="cpill ${m.kind === 'sold' ? 'g' : 'r'}" style="left:min(${p}%,calc(100% - 70px));top:${8 + (i % 3) * 26}px;animation-delay:${600 + i * 120}ms">${esc(m.text)}</span>`; }).join(''); }
+  tradeMarks(ch);
   V.querySelectorAll('.rg button').forEach(b => b.onclick = () => { S.range = b.dataset.r; render(); });
 }
 const AG = { scanner: ['Scanner', '◎', 'Vigila graduaciones'], auditor: ['Auditor', '⛨', 'Revisa 8 capas'], analyst: ['Analyst', '◔', 'Puntúa (reglas)'], executor: ['Executor', '⚡', 'Compra y vende'], risk: ['Risk', '⛉', 'Stop y trailing'] };
