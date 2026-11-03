@@ -222,7 +222,7 @@ ${p.mode_label ? `<div class="row"><span>Modo</span><span style="color:#00E676">
      <div class="row"><span>Trailing</span><span>${p.trail_line ? '$' + Number(p.trail_line).toPrecision(4) : 'no activo'}</span></div>`}
      ${p.compare ? `<div class="row"><span>Comparación</span><span class="mono" style="font-size:12px">${esc(p.compare)}</span></div>` : ''}
      ${p.compare_total ? `<div class="row"><span>Total</span><span style="font-size:12px">${esc(p.compare_total)}</span></div>` : ''}
-     <div class="row" style="border:0"><span>${open ? 'Cierra en' : 'Cerrada'}</span><span>${open ? Math.floor(p.timeout_left_s / 3600) + 'h ' + Math.floor(p.timeout_left_s % 3600 / 60) + 'm' : esc(p.exit_reason)}</span></div></div>` : ''}
+     <div class="row" style="border:0"><span>${open ? 'Cierra en' : 'Cerrada'}</span><span>${open ? (p.timeout_left_s == null ? 'sin límite' : Math.floor(p.timeout_left_s / 3600) + 'h ' + Math.floor(p.timeout_left_s % 3600 / 60) + 'm') : esc(p.exit_reason)}</span></div></div>` : ''}
    <h3>Info</h3><div class="feedl" style="padding:6px 16px"><div class="row"><span>Mint</span><span class="mono">${short(mint)}</span></div><div class="row" style="border:0"><span>Auditoría</span><a href="#/audit/${esc(mint)}" style="color:#00E676">${esc(c.shield || 'ver')} ›</a></div></div>
    <a class="btn" href="${esc(c.coin_url)}">Ver en FOMO</a>`;
   Charts.candles($('#cd'), c.candles, null);
