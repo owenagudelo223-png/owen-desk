@@ -183,31 +183,59 @@ async function coin(mint) {
     L.forEach(([, v]) => { lo = Math.min(lo, v); hi = Math.max(hi, v); }); const H = 240 - 48;
     $('#lvls').innerHTML = L.map(([t, v, k]) => `<div class="lvl ${k}" style="top:${6 + (hi - v) / ((hi - lo) || 1) * (H - 12)}px"><span>${t} $${Number(v).toPrecision(3)}</span></div>`).join(''); }
 }
+const SL = {
+ 'scanner.min_liquidity_usd': ['Liquidez mínima ($)', 'Ignora monedas con menos dinero en el pool'], 'scanner.max_top10_pct': ['Máx. en manos del top 10 (%)', 'Descarta si 10 billeteras tienen demasiado'],
+ 'scanner.max_h1_change_pct': ['Subida máx. en 1h (%)', 'No persigue monedas que ya subieron mucho'], 'scanner.poll_s': ['Revisar cada (s)', 'Cada cuánto vuelve a mirar'],
+ 'scanner.min_pool_age_min': ['Edad mínima del pool (min)', 'Espera a que el pool tenga esta edad'], 'scanner.max_wait_min': ['Espera máxima (min)', 'Tiempo máximo vigilando una moneda'],
+ 'scanner.runner_h24_pct': ['Ya disparada en 24h (%)', 'Marca monedas que ya subieron demasiado'], 'scanner.ws_silent_s': ['Alerta sin datos (s)', 'Reconecta si la fuente calla'],
+ 'auditor.enabled': ['Auditor activo', 'Revisa cada moneda antes de comprar'], 'auditor.max_dev_pct': ['Máx. del creador (%)', 'Tokens que puede tener el creador'],
+ 'auditor.max_top10_pct': ['Máx. top 10 (%)', 'Concentración máxima permitida'], 'auditor.min_lp_locked_pct': ['Liquidez bloqueada mín. (%)', 'Que no puedan retirar el pool'],
+ 'auditor.min_pool_age_min': ['Edad mínima del pool (min)', ''], 'auditor.max_bundled': ['Máx. billeteras agrupadas', 'Compras coordinadas al lanzar'],
+ 'auditor.max_delegated_accounts': ['Máx. cuentas delegadas', 'Permisos sospechosos'], 'auditor.retries': ['Reintentos', 'Si una fuente falla'],
+ 'analyst.mode': ['Modo', 'rules = reglas fijas'], 'analyst.min_alive_6h': ['Vida mínima 6h', 'Probabilidad de seguir activa'], 'analyst.min_organic': ['Compras orgánicas mín.', 'Gente real vs bots'],
+ 'analyst.max_chase': ['Persecución máx.', 'Evita comprar tarde'], 'analyst.min_score': ['Puntaje mínimo', 'Desde aquí manda a comprar'], 'analyst.timeout_s': ['Tiempo máx. (s)', ''],
+ 'analyst.rules.alive_volume_h1': ['Volumen 1h para "viva" ($)', ''], 'analyst.rules.organic_buys_h1': ['Compras/h orgánicas', ''], 'analyst.rules.bundled_penalty': ['Castigo por agrupadas', ''],
+ 'analyst.rules.bundled_from': ['Agrupadas desde', ''], 'analyst.rules.flush_drop_m5_pct': ['Caída en 5 min (%)', 'Señal de venta masiva'], 'analyst.rules.chase_h1_pct': ['Subida 1h = tarde (%)', ''],
+ 'executor.stack_pct': ['% del stack (práctica)', 'Tamaño de cada compra en PAPER'], 'executor.max_pool_pct': ['Máx. del pool (%)', 'No mover demasiado el precio'],
+ 'executor.min_ticket_usd': ['Compra mínima práctica ($)', ''], 'executor.below_min': ['Si es menor al mínimo', 'bump = subir, skip = saltar'],
+ 'executor.recheck_liq_drop_pct': ['Cancelar si liquidez cae (%)', 'Revisión justo antes de comprar'], 'executor.recheck_price_up_pct': ['Cancelar si precio sube (%)', ''], 'executor.confirm_window_min': ['Ventana de confirmación (min)', ''],
+ 'risk.poll_s': ['Revisar posición cada (s)', ''], 'risk.stop_pct': ['Stop (%)', 'Vende si cae esto desde la compra'], 'risk.trail_start_pct': ['Trailing empieza en (+%)', 'Desde esta ganancia persigue el pico'],
+ 'risk.trail_pct': ['Trailing desde el pico (%)', 'Vende si baja esto desde el máximo'], 'risk.timeout_h': ['Salida por tiempo (h)', 'Vende si no despega'], 'risk.timeout_min_gain_pct': ['Ganancia mín. para quedarse (%)', ''], 'risk.confirm_window_min': ['Ventana de confirmación (min)', ''],
+ 'desk.paper_start_stack': ['Saldo de práctica ($)', ''], 'desk.report_time': ['Hora del reporte', 'Hora Bogotá'], 'desk.notifier': ['Avisos por', ''], 'desk.rpc_url': ['Nodo Solana', ''],
+ 'desk.push_rejects': ['Avisar rechazos', ''], 'desk.fomo_handle': ['Usuario FOMO', ''],
+ 'auto.ticket_usd': ['Compra por operación ($)', 'Dinero real por compra'], 'auto.max_open': ['Posiciones abiertas máx.', ''], 'auto.min_reserve_sol': ['Reserva para comisiones (SOL)', ''],
+ 'auto.slippage_bps': ['Slippage (bps)', '100 bps = 1%'], 'auto.priority_max_lamports': ['Prioridad máx. (lamports)', ''], 'auto.max_day_loss_pct': ['Pérdida máx. del día (%)', 'Se apaga solo si pierde esto']
+};
+const SG = { scanner: 'Scanner · busca monedas', auditor: 'Auditor · revisa seguridad', analyst: 'Analyst · puntúa', executor: 'Executor · compra', risk: 'Risk · protege', auto: 'AUTO · dinero real', desk: 'Desk · general' };
+const HIDE = new Set(['desk.mode', 'desk.stack', 'desk.fees_ref_discount']);
 async function account() {
-  const [ac, st] = await Promise.all([api('account'), api('settings')]);
-  const groups = {}; Object.keys(st.settings).forEach(k => { const g = k.split('.')[0]; (groups[g] = groups[g] || []).push(k); });
-  const input = k => { const m = st.meta[k], v = st.settings[k];
-    if (m.type === 'bool') return `<div class="set"><label>${k.split('.').slice(1).join(' ')}</label><button class="switch ${v ? 'on' : ''}" data-k="${k}" data-bool></button></div>`;
-    if (m.type === 'choice') return `<div class="set"><label>${k.split('.').slice(1).join(' ')}</label><select data-k="${k}">${m.choices.map(c => `<option ${c === v ? 'selected' : ''}>${c}</option>`).join('')}</select></div>`;
-    if (m.type === 'text') return `<div class="set"><label>${k.split('.').slice(1).join(' ')}</label><input type="text" data-k="${k}" value="${esc(v)}"></div>`;
-    const step = (m.max - m.min) <= 1 ? 0.01 : (m.max - m.min) <= 100 ? 0.5 : 1;
-    return `<div class="set"><label>${k.split('.').slice(1).join(' ')}</label><input type="number" class="mono" data-k="${k}" value="${v}" min="${m.min}" max="${m.max}" step="any"><input type="range" data-r="${k}" min="${m.min}" max="${Math.min(m.max, Math.max(v * 4, m.min + 1))}" step="${step}" value="${v}"></div>`; };
-  V.innerHTML = `<div class="top"><b style="font-size:28px">Account</b>${paperBadge(ac.mode)}</div>
-   <div class="full"><div class="seg"><button class="${ac.mode === 'PAPER' ? 'on' : ''}" data-m="PAPER">PAPER</button><button class="${ac.mode === 'LIVE' ? 'on' : ''}" data-m="LIVE">LIVE</button></div>
-   <div class="set"><label>LIVE stack ($)</label><input type="number" data-k="desk.stack" value="${ac.stack}"></div>
-   <a class="row" href="${esc(ac.profile_url)}"><span>Your FOMO profile</span><span>@${esc(ac.fomo_handle)} ›</span></a>
-   <div class="row"><span>Telegram</span><span>${ac.telegram ? 'connected' : 'not connected · send /start to the bot'}</span></div>
-   <div class="row" style="border:0"><span>Notifications</span><span>Telegram only (no web push on this host)</span></div></div>
-   <div id="msg" class="lbl" style="color:var(--o);min-height:20px"></div>
-   ${Object.entries(groups).map(([g, ks]) => `<h2 id="s-${g}">${g[0].toUpperCase() + g.slice(1)}</h2><div class="full">${ks.map(input).join('')}</div>`).join('')}`;
-  const save = async (k, v) => { try { await api('settings', { method: 'POST', body: JSON.stringify({ [k]: v }) }); $('#msg').textContent = `${k} saved`; } catch (e) { $('#msg').textContent = e.message; } };
-  V.querySelectorAll('input[data-k],select[data-k]').forEach(i => i.onchange = () => { const r = V.querySelector(`[data-r="${i.dataset.k}"]`); if (r) r.value = i.value; save(i.dataset.k, i.value); });
-  V.querySelectorAll('[data-r]').forEach(r => r.onchange = () => { V.querySelector(`input[data-k="${r.dataset.r}"]`).value = r.value; save(r.dataset.r, r.value); });
+  const [ac, st, ss] = await Promise.all([api('account'), api('settings'), S.state ? Promise.resolve(S.state) : api('state').catch(() => null)]); if (ss) S.state = ss;
+  const v = st.settings, auto = ac.mode !== 'PAPER', ro = !!DP(), w = ac.wallet || {};
+  const fmt = (k, x) => typeof x === 'boolean' ? (x ? 'Sí' : 'No') : esc(x);
+  const row = k => { const [l, d] = SL[k] || [k.split('.').slice(1).join(' '), ''], m = st.meta[k], x = v[k];
+    let ctl = `<span class="sv2 mono">${fmt(k, x)}</span>`;
+    if (!ro) ctl = m.type === 'bool' ? `<button class="switch ${x ? 'on' : ''}" data-k="${k}" data-bool></button>` : m.type === 'choice' ? `<select data-k="${k}">${m.choices.map(c => `<option ${c === x ? 'selected' : ''}>${c}</option>`).join('')}</select>` : `<input class="mono" data-k="${k}" value="${esc(x)}" style="width:110px">`;
+    return `<div class="row"><span><b class="rl">${l}</b>${d ? `<small>${d}</small>` : ''}</span>${ctl}</div>`; };
+  const groups = {}; Object.keys(v).filter(k => !HIDE.has(k) && SL[k] !== undefined || (!HIDE.has(k) && !SL[k])).filter(k => !HIDE.has(k)).forEach(k => { const g = k.split('.')[0]; (groups[g] = groups[g] || []).push(k); });
+  const order = ['auto', 'risk', 'scanner', 'auditor', 'analyst', 'executor', 'desk'].filter(g => groups[g]);
+  V.innerHTML = `<h3 style="margin-top:8px">Cuenta</h3>
+   <div class="feedl" style="padding:6px 16px">
+    <div class="row"><span><b class="rl">Modo</b><small>${auto ? 'Opera con la billetera real del bot' : 'Práctica, sin dinero real'}</small></span><span class="spill"><i class="sd" style="background:${auto ? '#00E676' : '#8E8E93'}"></i>${auto ? 'AUTO · dinero real' : 'PAPER · práctica'}</span></div>
+    ${auto ? `<div class="row"><span><b class="rl">Billetera del bot</b><small>Toca para verla en Solscan</small></span><a class="mono" style="color:#00E676" href="https://solscan.io/account/${esc(w.address)}" target="_blank" rel="noopener">${short(w.address)} ↗</a></div>
+    <div class="row"><span><b class="rl">Saldo</b><small>${w.sol != null ? Number(w.sol).toFixed(4) + ' SOL' : ''}</small></span><span class="sv2">${ss && ss.real ? usd(ss.balance) : 'n/a'}</span></div>
+    <div class="row"><span><b class="rl">Compra por operación</b></span><span class="sv2">${usd(v['auto.ticket_usd'])}</span></div>
+    <div class="row"><span><b class="rl">Stop</b><small>Vende si cae esto desde la compra</small></span><span class="sv2" style="color:#FF3B30">-${v['risk.stop_pct']}%</span></div>
+    <div class="row"><span><b class="rl">Trailing</b><small>Empieza en +${v['risk.trail_start_pct']}% y vende si baja ${v['risk.trail_pct']}% desde el pico</small></span><span class="sv2" style="color:#00E676">+${v['risk.trail_start_pct']}% / ${v['risk.trail_pct']}%</span></div>
+    <div class="row"><span><b class="rl">Salida por tiempo</b><small>Vende si no despega</small></span><span class="sv2">${v['risk.timeout_h']}h</span></div>
+    <div class="row"><span><b class="rl">Apagado por pérdida diaria</b><small>Vuelve a práctica si pierde esto en el día</small></span><span class="sv2" style="color:#FF3B30">${v['auto.max_day_loss_pct']}%</span></div>` : `<div class="row"><span><b class="rl">Saldo de práctica</b></span><span class="sv2">${ss ? usd(ss.balance) : 'n/a'}</span></div>`}
+    <a class="row" href="${esc(ac.profile_url)}"><span><b class="rl">Tu perfil FOMO</b></span><span>@${esc(ac.fomo_handle)} ›</span></a>
+    <div class="row" style="border:0"><span><b class="rl">Telegram</b></span><span>${ac.telegram ? 'conectado' : 'no conectado · envía /start al bot'}</span></div></div>
+   ${ro ? '<div class="note">Para cambiar ajustes, usa Telegram</div>' : '<div id="msg" class="note"></div>'}
+   ${order.map(g => `<h3 id="s-${g}">${SG[g] || g}</h3><div class="feedl" style="padding:2px 16px">${groups[g].map(row).join('')}</div>`).join('')}`;
+  if (ro) return;
+  const save = async (k, x) => { try { await api('settings', { method: 'POST', body: JSON.stringify({ [k]: x }) }); $('#msg').textContent = 'Guardado'; } catch (e) { $('#msg').textContent = e.message; } };
+  V.querySelectorAll('input[data-k],select[data-k]').forEach(i => i.onchange = () => save(i.dataset.k, i.value));
   V.querySelectorAll('[data-bool]').forEach(b => b.onclick = () => { b.classList.toggle('on'); save(b.dataset.k, b.classList.contains('on')); });
-  V.querySelectorAll('[data-m]').forEach(b => b.onclick = async () => { const m = b.dataset.m; let body = { mode: m };
-    if (m === 'LIVE') { const t = prompt('Type LIVE to confirm'); if (t !== 'LIVE') return; body.confirm = 'LIVE'; }
-    const r = await api('mode', { method: 'POST', body: JSON.stringify(body) }); $('#msg').textContent = r.result; render(); });
-  const s = new URLSearchParams(location.hash.split('?')[1] || '').get('s'); if (s) { const map = { scanner: 'scanner', auditor: 'auditor', analyst: 'analyst', executor: 'executor', risk: 'risk' }; const el = $('#s-' + map[s]); if (el) el.scrollIntoView(); }
 }
 async function render() { setStatus(S.state && S.state.mode, true);
   const h = location.hash.replace(/^#\/?/, '') || 'home', [path] = h.split('?'), [tab, arg] = path.split('/');

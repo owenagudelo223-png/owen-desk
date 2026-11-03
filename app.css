@@ -166,3 +166,5 @@ html,body{font-family:Inter,-apple-system,"SF Pro Text",system-ui,sans-serif;fon
 .back{color:#00E676;font-weight:600}
 @media(min-width:900px){.mini{flex:1 0 170px}.carousel2{margin:0;padding:0 0 6px}#tabs button.on::before{background:#00E676}}
 @media(min-width:900px){.mobonly{display:none}}
+.rl{display:block;font-weight:600}.row small{display:block;color:#8E8E93;font-size:12px;font-weight:400;margin-top:1px}.row>span:first-child{padding-right:10px}
+.sv2{font-weight:700;white-space:nowrap}.note{color:#8E8E93;font-size:13px;text-align:center;margin:12px 0}
