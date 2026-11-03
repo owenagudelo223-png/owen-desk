@@ -88,7 +88,7 @@ async function home() {
 const AG = { scanner: ['Scanner', '◎', 'Vigila graduaciones'], auditor: ['Auditor', '⛨', 'Revisa 8 capas'], analyst: ['Analyst', '◔', 'Puntúa (reglas)'], executor: ['Executor', '⚡', 'Compra y vende'], risk: ['Risk', '⛉', 'Stop y trailing'] };
 const STX = { running: ['activo', '#34C759'], paused: ['pausado', '#8E8E93'], error: ['error', '#FF4500'] };
 async function agents() {
-  const st = await api('state'); const ds = await Promise.all(st.agents.map(a => api(`agents/${a.name}/decisions`).catch(() => ({ rows: [] }))));
+  const st = await api('state'); S.state = st; const ds = await Promise.all(st.agents.map(a => api(`agents/${a.name}/decisions`).catch(() => ({ rows: [] }))));
   setStatus(st.mode);
   const info = a => a.name === 'scanner' ? `${a.count} pools · ${a.waiting} en espera` : a.name === 'auditor' ? `${a.count} auditadas · ${a.rejected} rechazadas` : a.name === 'analyst' ? `${a.count} puntuadas · mínimo ${a.min_score}` : a.name === 'executor' ? `${a.count} operaciones · ${a.stack_pct}% por operación` : `${a.open} abiertas · stop -${a.stop_pct}% · trail ${a.trail_pct}%`;
   V.innerHTML = `<h3 style="margin-top:8px">Agentes <span class="ss">${st.agents.filter(a => a.status === 'running').length} de ${st.agents.length} activos</span></h3>` + st.agents.map((a, i) => { const [n, ic, d] = AG[a.name] || [a.name, '•', '']; const [sl, sc] = STX[a.status] || [a.status, '#8E8E93'];
