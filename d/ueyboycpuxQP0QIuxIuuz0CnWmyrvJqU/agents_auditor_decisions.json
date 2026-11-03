@@ -1,1 +1,1 @@
-{"error": "<urlopen error [Errno 111] Connection refused>"}
+{"rows": [{"ts": 1793669555.2662294, "mint": "8PzFWyLpCVEmbZmVJcaRTU5r69XKJx1rd7YGpWvnpump", "coin": "Top 10 holders", "verdict": "red", "reason": "no data: top 10 holders", "coin_url": "https://fomo.family/coin?address=8PzFWyLpCVEmbZmVJcaRTU5r69XKJx1rd7YGpWvnpump&chainId=1399811149"}]}
