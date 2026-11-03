@@ -344,11 +344,12 @@ async function wallet() {
   const solUsd = sol != null && st.sol_price ? sol * st.sol_price : null;
   V.innerHTML = `<div class="whero"><div class="lbl2">Billetera del bot · solo lectura</div><div class="bal big" id="bal"></div>
     <a class="mono waddr" href="https://solscan.io/account/${esc(w.address)}" target="_blank" rel="noopener">${short(w.address)} ↗</a></div>
+   <div class="wdraw"><div><div class="lbl2">Disponible para retirar</div><div class="wdv">${st.withdrawable_usd != null ? usd(st.withdrawable_usd) : 'n/a'}${st.withdrawable_sol != null ? ` <small>${Number(st.withdrawable_sol).toFixed(4)} SOL</small>` : ''}</div><small>Se confirma en Telegram · siempre a tu Phantom …QWy</small></div><a class="wbtn" href="https://t.me/OwenTradingDeskBot" target="_blank" rel="noopener">Retirar</a></div>
    <h3>Activos</h3><div class="feedl">
     <div class="arow"><div class="tok solt">◎</div><div class="am"><div>Solana</div><div>${sol != null ? Number(sol).toFixed(4) + ' SOL' : 'n/a'} · 1 SOL = ${usd(st.sol_price)}</div></div><div class="av"><div>${usd(solUsd)}</div></div></div>
     ${T.openB.map(t => `<a class="arow" href="#/coin/${esc(t.mint)}">${tokImg(t.mint, t.symbol)}<div class="am"><div>${esc(t.symbol || short(t.mint))}</div><div>posición abierta</div></div><div class="av"><div class="avs">ver ›</div></div></a>`).join('')}</div>
    <h3>Actividad <a href="#/activity" class="vt">Ver todo</a></h3><div class="feedl">${ac.rows.length ? ac.rows.slice(0, 12).map(actRow).join('') : '<div class="empty">Sin actividad todavía</div>'}</div>
-   <div class="note">Vista de solo lectura: sin depósitos, retiros ni transferencias desde la app. <a href="#/account" style="color:#7fb2ff">Ajustes y reglas ›</a></div>`;
+   <div class="note">La app no mueve fondos: los retiros se piden con /retirar en Telegram y se confirman allí. <a href="#/account" style="color:#7fb2ff">Ajustes y reglas ›</a></div>`;
   odometer($('#bal'), st.balance); saveSeen(); }
 (function stars() { const s = document.getElementById('stars'); if (!s) return; let h = '';
   for (let i = 0; i < 90; i++) h += `<i style="left:${Math.random() * 100}%;top:${Math.random() * 100}%;width:${Math.random() < .15 ? 2.5 : 1.5}px;height:${Math.random() < .15 ? 2.5 : 1.5}px;opacity:${(.25 + Math.random() * .6).toFixed(2)};animation-delay:${(Math.random() * 4).toFixed(1)}s"></i>`; s.innerHTML = h; })();
