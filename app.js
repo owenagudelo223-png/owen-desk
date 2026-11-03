@@ -184,7 +184,7 @@ function agCard(a, rows) { const [n, ic, d] = AG[a.name] || [a.name, '•', ''];
    ${rows ? `<div class="dec">${rows.length ? rows.slice(0, 6).map(r => `<div><span class="mono">${tmB(r.ts)}</span><span>${esc(r.coin || r.mint.slice(0, 6))}</span><span style="color:${/kill|reject|fail|stop|^red$/i.test(r.verdict) ? '#FF4500' : '#34C759'}">${esc(r.verdict)}</span><span>${esc(r.reason || '')}</span></div>`).join('') : '<div style="color:#8E8E93;display:block">Sin decisiones todavía</div>'}</div>` : ''}</div>`; }
 async function activity() {
   const ac = await api('activity'); if (!DP()) api('pushes/read', { method: 'POST' }).catch(() => {});
-  V.innerHTML = `<h3 style="margin-top:8px">Actividad</h3><div class="feedl">${ac.rows.length ? ac.rows.map(actRow).join('') : '<div class="empty">Sin actividad todavía</div>'}</div>`; saveSeen();
+  V.innerHTML = `<h3 style="margin-top:8px">Actividad</h3>${pushBox()}<div class="feedl">${ac.rows.length ? ac.rows.map(actRow).join('') : '<div class="empty">Sin actividad todavía</div>'}</div>`; saveSeen(); const pb = document.getElementById('pushon'); if (pb) pb.onclick = enablePush;
 }
 async function audit(mint) {
   const a = await api('audit/' + mint); const L = a.layers;
@@ -361,7 +361,35 @@ async function wallet() {
   for (let i = 0; i < 90; i++) h += `<i style="left:${Math.random() * 100}%;top:${Math.random() * 100}%;width:${Math.random() < .15 ? 2.5 : 1.5}px;height:${Math.random() < .15 ? 2.5 : 1.5}px;opacity:${(.25 + Math.random() * .6).toFixed(2)};animation-delay:${(Math.random() * 4).toFixed(1)}s"></i>`; s.innerHTML = h; })();
 async function render() { setStatus(S.state && S.state.mode, true);
   const h = location.hash.replace(/^#\/?/, '') || 'home', [path] = h.split('?'), [tab, arg] = path.split('/');
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab || (tab === 'account' && b.dataset.tab === 'wallet') || (tab === 'activity' && b.dataset.tab === 'wallet')));
+  // ---- Web Push (receive-only: the phone gets buy/sell notices; nothing here can move funds) ----
+const VAPID = 'BJxYL-BtV7LJS32Rvkun1PWEs0VYDutL1dkkkM7s0qRbHlOlDXWaC09d48R5K2FM9piMCM0ymXsKM2ZWWTjVk5g';
+const pushOK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const standalone = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+const pushOn = () => pushOK() && Notification.permission === 'granted' && localStorage.getItem('push_on') === '1';
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js?v=20').catch(() => {});
+function pushBox() { if (!GH) return ''; return pushOn() ? '<div class="note" style="margin:6px 0 12px">🔔 Avisos activados: te llega una notificación con cada compra y cada venta.</div>'
+  : '<button class="btn" id="pushon" style="margin:6px 0 12px;width:100%">🔔 Activar avisos de compras y ventas</button>'; }
+function b64u(s) { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...b].map(c => c.charCodeAt(0))); }
+async function pushTopic() { const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('owen-desk-push:' + DP())); return 'gbd-' + [...new Uint8Array(h)].map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 32); }
+async function enablePush(ev) {
+  if (ev) ev.preventDefault();
+  if (!pushOK() || !standalone()) { alert('Para recibir avisos abre GrokBot desde el ícono de tu pantalla de inicio (iPhone con iOS 16.4 o más nuevo) y toca la campana otra vez.'); return; }
+  if (!DP()) { alert('Abre primero tu enlace secreto una vez.'); return; }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { alert('No diste permiso. Ve a Ajustes › Notificaciones › GrokBot y actívalas, luego toca la campana otra vez.'); return; }
+    const reg = await navigator.serviceWorker.register('sw.js?v=20'); await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(VAPID) });
+    const r = await fetch('https://ntfy.sh/' + await pushTopic(), { method: 'POST', body: JSON.stringify(sub.toJSON()) });
+    if (!r.ok) throw new Error('relay ' + r.status);
+    localStorage.setItem('push_on', '1');
+    alert('¡Listo! En menos de un minuto te llega una notificación de prueba. Desde ahora te aviso cada compra y cada venta.');
+    if (/activity/.test(location.hash)) render();
+  } catch (e) { alert('No se pudieron activar los avisos: ' + e.message); }
+}
+(function () { const bell = document.querySelector('#hdr a[href="#/activity"]'); if (bell && GH) bell.addEventListener('click', e => { if (!pushOn()) enablePush(e); }); })();
+document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab || (tab === 'account' && b.dataset.tab === 'wallet') || (tab === 'activity' && b.dataset.tab === 'wallet')));
   try { if (tab === 'coin') await coin(decodeURIComponent(arg)); else if (tab === 'audit') await audit(arg); else await ({ home, trades, agents, wallet, activity, account, search }[tab] || home)(); }
   catch (e) { errView(e); }
   setStatus(S.state && S.state.mode); splashDone();
