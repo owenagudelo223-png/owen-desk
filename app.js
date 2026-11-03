@@ -327,7 +327,7 @@ function tradeStats(st, trs) { const sells = trs.filter(t => t.side === 'sell'),
   const base = 50, mult = st.balance / base;
   return { sells, wins, buys, openB, mult, wr: sells.length ? Math.round(wins / sells.length * 100) : null }; }
 async function trades() {
-  const [st, ch, fd, ac] = await Promise.all([api('state'), api('chart?range=ALL'), api('feed').catch(() => null), api('activity').catch(() => ({ rows: [] }))]); S.state = st; setStatus(st.mode);
+  const [st, ch, fd, ac, dp] = await Promise.all([api('state'), api('chart?range=ALL'), api('feed').catch(() => null), api('activity').catch(() => ({ rows: [] })), api('dip').catch(() => null)]); S.state = st; setStatus(st.mode);
   const trs = ch.trades || [], T = tradeStats(st, trs), up = T.mult >= 1;
   const tr = (t, sell) => `<a class="arow" href="#/coin/${esc(t.mint)}">${tokImg(t.mint, t.symbol)}<div class="am"><div><i class="tag ${sell ? ((t.pnl_usd || 0) >= 0 ? 'g' : 'r') : 'g'}">${sell ? 'VENTA' : 'COMPRA'}</i> ${esc(t.symbol || short(t.mint))}</div><div>${tmB(t.ts)}${t.reason ? ' · ' + esc(t.reason) : ''}</div></div><div class="av"><div style="color:${!sell ? '#fff' : (t.pnl_usd || 0) >= 0 ? '#00E676' : '#FF3B30'}">${sell ? `${t.pnl_usd >= 0 ? '+' : '−'}$${Math.abs(t.pnl_usd).toFixed(2)}` : 'abierta'}</div><div class="avs">${sell && t.pnl_pct != null ? t.pnl_pct + '%' : ''}</div></div></a>`;
   V.innerHTML = `<div class="thero">${botSvg('executor', 150, 'bigbot')}<div class="tst"><div class="lbl2">Saldo real</div><div class="bal big tb" id="bal"></div>
@@ -336,6 +336,9 @@ async function trades() {
    <div class="chartw"><canvas id="line"></canvas><div id="pills"></div></div>
    <h3>Posiciones abiertas <span class="apill">${T.openB.length}</span></h3><div class="feedl">${T.openB.length ? T.openB.map(t => tr(t, false)).join('') : '<div class="empty">Sin posiciones abiertas · el desk está buscando</div>'}</div>
    <h3>Trades cerrados</h3><div class="feedl">${T.sells.length ? T.sells.slice().reverse().map(t => tr(t, true)).join('') : '<div class="empty">Aún no hay trades cerrados con dinero real</div>'}</div>
+   ${dp && !dp.error ? `<h3>Prueba: compra en caídas (simulación)</h3><div class="card"><div class="lbl">Solo simulación · no usa dinero real</div>
+     <div class="tkv"><span><b>${dp.trades}</b> trades</span><span><b>${dp.win_rate == null ? '—' : dp.win_rate + '%'}</b> acierto</span><span><b style="color:${dp.pnl >= 0 ? '#00E676' : '#FF3B30'}">${dp.pnl >= 0 ? '+' : '−'}$${Math.abs(dp.pnl).toFixed(2)}</b> P&amp;L</span><span><b>${dp.open}</b> abiertas</span></div>
+     <div class="lbl" style="margin-top:6px">Real mismo periodo: ${dp.live_trades} trades · ${dp.live_pnl >= 0 ? '+' : '−'}$${Math.abs(dp.live_pnl).toFixed(2)} · vigilando ${dp.watching}</div></div>` : ''}
    <h3>Agentes <a href="#/agents" class="vt">Ver todo</a></h3><div class="chat mini2">${chatHtml(chatRows(fd, ac, trs), 5)}</div>`;
   odometer($('#bal'), st.balance); Charts.line($('#line'), ch.points || [], ch.start, []); tradeMarks(ch); eyesLoop(); }
 async function wallet() {
