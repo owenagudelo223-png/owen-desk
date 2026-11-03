@@ -45,45 +45,84 @@ function card(a, st) {
 const BOG = ts => new Date(ts).toLocaleString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 const tmB = ts => new Date(ts * 1000).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hour12: false });
 const short = a => a ? a.slice(0, 4) + '…' + a.slice(-4) : '—';
-const KIND = { bought: ['#34C759', '↓', 'Compra'], sold: ['#34C759', '↑', 'Venta'], stopped: ['#FF4500', '✕', 'Stop'], rejected: ['#FF4500', '✕', 'Rechazada'], fee: ['#F6851B', '⇡', 'Comisión'], withdraw: ['#F6851B', '⇡', 'Retiro'] };
+const KIND = { bought: ['#00E676', '↓', 'Compró'], sold: ['#00E676', '↑', 'Vendió'], stopped: ['#FF3B30', '✕', 'Stop en'], rejected: ['#FF3B30', '✕', 'Rechazó'], fee: ['#F6851B', '⇡', 'Comisión'], withdraw: ['#F6851B', '⇡', 'Retiro'] };
+const AGL = { auditor: 'Auditor', executor: 'Executor', risk: 'Risk', scanner: 'Scanner', analyst: 'Analyst' };
 const seen = new Set(JSON.parse(sessionStorage.getItem('seen_rows') || '[]'));
+const hue = s => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+function tokImg(mint, sym, size = 40) { const h = hue(mint || sym), ini = esc((sym || '?')[0].toUpperCase());
+  return `<div class="tok" style="width:${size}px;height:${size}px;background:hsl(${h} 60% 28%);color:hsl(${h} 90% 75%)">${ini}${mint ? `<img src="https://dd.dexscreener.com/ds-data/tokens/solana/${esc(mint)}.png" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>`; }
+const num = v => parseFloat(String(v).replace(/[^\d.+-]/g, ''));
 function actRow(r) {
   const href = r.kind === 'rejected' ? `#/audit/${r.mint}` : `#/coin/${r.mint}`;
-  const [col, ic, lab] = KIND[r.kind] || ['#8E8E93', '•', r.kind];
+  const [col, , lab] = KIND[r.kind] || ['#8E8E93', '•', r.kind];
   const isNew = seen.size && !seen.has(r.id); seen.add(r.id);
   const sym = (r.title || '').split(' ').slice(1).join(' ') || (r.mint || '').slice(0, 6);
   const sub = (r.subtitle || '').replace(/^[^·]*·\s*/, '');
-  return `<a class="arow${isNew ? ' slide' : ''}" href="${href}"><div class="aic" style="background:${col}22;color:${col}">${ic}</div><div class="am"><div>${esc(sym)} · ${esc(lab)}</div><div>${r.ts ? tmB(r.ts) : ''} · ${esc(sub)}</div></div><div class="av" style="color:${col}">${esc(r.value)}</div></a>`;
+  const m = String(r.value).match(/\$\s?([\d.,]+)/), bal = S.state && S.state.balance;
+  const pct = m && bal && (r.kind === 'bought' || r.kind === 'sold' || r.kind === 'stopped') ? `${(parseFloat(m[1].replace(/,/g, '')) / bal * 100).toFixed(1)}% del stack` : esc(sub);
+  return `<a class="arow${isNew ? ' slide' : ''}" href="${href}">${tokImg(r.mint, sym)}<div class="am"><div><b>${esc(lab)} ${esc(sym)}</b></div><div>${esc(AGL[r.agent] || r.agent || '')} · ${r.ts ? tmB(r.ts) : ''}</div></div><div class="av"><div style="color:${col}">${esc(r.value)}</div><div class="avs">${pct}</div></div></a>`;
 }
 function saveSeen() { sessionStorage.setItem('seen_rows', JSON.stringify([...seen].slice(-300))); }
 function setStatus(mode, busy) { const p = $('#stat'); if (!p) return; const auto = mode && mode !== 'PAPER';
-  p.innerHTML = busy ? '<i class="spin"></i>Actualizando' : `<i class="sd" style="background:${auto ? '#34C759' : '#8E8E93'}"></i>${auto ? 'AUTO' : 'PAPER'}`; }
-const RANGES = { LIVE: 'LIVE', '1H': '1H', '24H': '1D', '1W': '1W', ALL: 'ALL' };
+  p.innerHTML = busy ? '<i class="spin"></i>Actualizando' : `<i class="sd" style="background:${auto ? '#00E676' : '#8E8E93'}"></i>${auto ? 'AUTO' : 'PAPER'}`; }
+const RANGES = { LIVE: 'LIVE', '1H': '1H', '4H': '4H', '1D': '1D', '1W': '1W', ALL: 'ALL' };
 let WALLET = null;
+function toast(title, body, col) { const t = document.createElement('div'); t.className = 'toast';
+  t.innerHTML = `<div class="tic" style="background:${col}">◆</div><div><b>${esc(title)}</b><div>${esc(body)}</div></div><span>ahora</span>`;
+  document.body.appendChild(t); requestAnimationFrame(() => t.classList.add('in')); setTimeout(() => { t.classList.remove('in'); setTimeout(() => t.remove(), 500); }, 4200); }
+function confetti() { if (RM) return; const c = document.createElement('canvas'); c.className = 'confetti'; document.body.appendChild(c);
+  const w = c.width = innerWidth, h = c.height = innerHeight, x = c.getContext('2d'), cols = ['#00E676', '#FFD60A', '#64D2FF', '#FF2D55', '#fff'];
+  const P = Array.from({ length: 160 }, () => ({ x: w / 2, y: h / 3, vx: (Math.random() - .5) * 16, vy: Math.random() * -14 - 4, r: Math.random() * 6 + 3, c: cols[Math.random() * 5 | 0], a: Math.random() * 6 }));
+  let f = 0; (function tick() { x.clearRect(0, 0, w, h); P.forEach(p => { p.vy += .45; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.a += .2; x.save(); x.translate(p.x, p.y); x.rotate(p.a); x.fillStyle = p.c; x.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2); x.restore(); });
+    if (++f < 150) requestAnimationFrame(tick); else c.remove(); })(); }
+function events(rows) {
+  const fresh = seen.size ? rows.filter(r => !seen.has(r.id)) : [];
+  fresh.filter(r => r.kind === 'bought' || r.kind === 'sold' || r.kind === 'stopped').slice(0, 2).forEach(r => {
+    const sym = (r.title || '').split(' ').slice(1).join(' ');
+    toast(r.kind === 'bought' ? `Compró ${sym}` : r.kind === 'sold' ? `Vendió ${sym}` : `Stop en ${sym}`, `${r.value} · ${r.subtitle || ''}`, r.kind === 'stopped' ? '#FF3B30' : '#00E676'); });
+  const done = new Set(JSON.parse(localStorage.getItem('confetti_ids') || '[]'));
+  rows.filter(r => r.kind === 'sold' && !done.has(r.id)).forEach(r => { const p = String(r.value).match(/([+-]?\d+(?:\.\d+)?)\s*%/);
+    if (p && parseFloat(p[1]) >= 10 && seen.size && !seen.has(r.id)) confetti(); done.add(r.id); });
+  localStorage.setItem('confetti_ids', JSON.stringify([...done].slice(-500)));
+}
+function agMini(a) { const [n, ic] = AG[a.name] || [a.name, '•']; const [sl, sc] = STX[a.status] || [a.status, '#8E8E93'];
+  let body = '';
+  if (a.name === 'analyst') { const sc2 = a.score == null ? 0 : a.score, R = 26, C = 2 * Math.PI * R;
+    body = `<svg class="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="${R}" stroke="#2C2C2E"/><circle cx="32" cy="32" r="${R}" stroke="${a.score != null && a.score >= a.min_score ? '#00E676' : '#FFD60A'}" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - sc2 / 100)}" transform="rotate(-90 32 32)"/><text x="32" y="37">${a.score == null ? '–' : a.score}</text></svg><div class="ms">${a.count} puntuadas · mín ${a.min_score}</div>`; }
+  else { const [big, lab, pct] = a.name === 'scanner' ? [a.count, `${a.waiting} en espera`, Math.min(100, a.waiting * 20)] : a.name === 'auditor' ? [a.count, `${a.rejected} rechazadas`, a.count ? 100 * (a.count - a.rejected) / a.count : 0]
+      : a.name === 'executor' ? [a.count, `${a.stack_pct}% del stack por operación`, a.progress != null ? a.progress : a.last ? 100 : 0] : [a.open, `stop -${a.stop_pct}% · trail ${a.trail_pct}%`, a.open ? 100 : 0];
+    body = `<div class="mb">${big}</div><div class="ms">${esc(lab)}</div><div class="pbar"><i style="width:${pct}%"></i></div>`; }
+  return `<div class="mini"><div class="mh"><span class="mic">${ic}</span><b>${n}</b><span class="sd" style="background:${sc}" title="${sl}"></span></div>${body}</div>`; }
 async function home() {
   const [st, ch, ac, acct] = await Promise.all([api('state'), api('chart?range=' + RANGES[S.range]), api('activity'), WALLET ? Promise.resolve(null) : api('account').catch(() => null)]); S.state = st;
   if (acct && acct.wallet) WALLET = acct.wallet.address;
   const A = n => st.agents.find(a => a.name === n) || {};
   const rows = ac.rows, closed = rows.filter(r => r.kind === 'sold' || r.kind === 'stopped');
   const wins = rows.filter(r => r.kind === 'sold').length;
-  const pcts = closed.map(r => parseFloat(String(r.value).replace(/[^\d.+-]/g, ''))).filter(x => !isNaN(x)).sort((a, b) => a - b);
+  const pcts = closed.map(r => num(r.value)).filter(x => !isNaN(x)).sort((a, b) => a - b);
   const med = pcts.length ? pcts[Math.floor(pcts.length / 2)] : null;
   const rej = A('auditor').rejected || 0, scanned = A('scanner').count || 0, buys = A('executor').count || 0;
   const fees = rows.filter(r => r.kind === 'fee');
-  const pnl = st.balance - (st.start_value || st.balance), up = pnl >= 0;
+  const sv = st.start_value || st.balance, pnl = st.balance - sv, up = pnl >= 0, mult = sv ? st.balance / sv : 1;
+  const act = st.agents.filter(a => a.status === 'running').length;
+  events(rows);
   V.innerHTML = `<div class="hero"><div class="hl"><span>Desk • <span class="mono">${short(WALLET)}</span></span><span id="clock" class="mono">${BOG(Date.now())}</span></div>
-   <div class="bal big" id="bal"></div><div class="pnl" style="color:${up ? '#34C759' : '#FF4500'}">${up ? '+' : '−'}${usd(Math.abs(pnl))} (${up ? '+' : ''}${st.today_pct.toFixed(2)}%) <span>hoy</span></div>${st.real && st.sol != null ? `<div class="solln mono">${Number(st.sol).toFixed(4)} SOL · 1 SOL = ${usd(st.sol_price)} · dinero real</div>` : ''}</div>
-   <canvas id="line"></canvas><div class="rg">${Object.keys(RANGES).map(r => `<button data-r="${r}" class="${r === S.range ? 'on' : ''}">${r}</button>`).join('')}</div>
+   <div class="bal big" id="bal"></div><div class="pnl" style="color:${up ? '#00E676' : '#FF3B30'}">${up ? '+' : '−'}${usd(Math.abs(pnl))} (${up ? '+' : ''}${st.today_pct.toFixed(2)}%) <span>hoy</span> <i class="mult ${up ? '' : 'dn'}"><svg viewBox="0 0 12 12"><path d="${up ? 'M1 9l3.5-3.5 2 2L11 3M8 3h3v3' : 'M1 3l3.5 3.5 2-2L11 9M8 9h3V6'}"/></svg>${mult.toFixed(2)}x</i></div>${st.real && st.sol != null ? `<div class="solln mono">${Number(st.sol).toFixed(4)} SOL · 1 SOL = ${usd(st.sol_price)} · dinero real</div>` : ''}</div>
+   <div class="chartw"><canvas id="line"></canvas><div id="pills"></div></div><div class="rg">${Object.keys(RANGES).map(r => `<button data-r="${r}" class="${r === S.range ? 'on' : ''}">${r === 'LIVE' ? '<i class="pulse"></i>' : ''}${r}</button>`).join('')}</div>
+   <h3>Agentes <span class="apill">${act} activos</span></h3><div class="carousel2">${st.agents.map(agMini).join('')}</div>
    <h3>El desk hoy</h3><div class="grid">
-    <div class="st"><div class="si" style="color:#34C759">◎</div><div class="sl">Escaneadas</div><div class="sv">${scanned}</div><div class="ss">${A('scanner').waiting || 0} en espera</div></div>
-    <div class="st"><div class="si" style="color:#34C759">↓</div><div class="sl">Compras</div><div class="sv">${buys}</div><div class="ss">${closed.length ? `${wins} ganadoras · mediana ${med > 0 ? '+' : ''}${med != null ? med.toFixed(1) + '%' : '—'}` : 'sin cierres aún'}</div></div>
-    <div class="st"><div class="si" style="color:#FF4500">✕</div><div class="sl">Rechazadas / perdidas</div><div class="sv" style="color:#FF4500">${rej + rows.filter(r => r.kind === 'stopped').length}</div><div class="ss">${scanned ? Math.round(rej / Math.max(1, A('auditor').count || 1) * 100) + '% de auditadas' : '—'}</div></div>
+    <div class="st"><div class="si" style="color:#00E676">◎</div><div class="sl">Escaneadas</div><div class="sv">${scanned}</div><div class="ss">${A('scanner').waiting || 0} en espera</div></div>
+    <div class="st"><div class="si" style="color:#00E676">↓</div><div class="sl">Compras</div><div class="sv">${buys}</div><div class="ss">${closed.length ? `${wins} ganadoras · mediana ${med > 0 ? '+' : ''}${med != null ? med.toFixed(1) + '%' : '—'}` : 'sin cierres aún'}</div></div>
+    <div class="st"><div class="si" style="color:#FF3B30">✕</div><div class="sl">Rechazadas / perdidas</div><div class="sv" style="color:#FF3B30">${rej + rows.filter(r => r.kind === 'stopped').length}</div><div class="ss">${A('auditor').count ? Math.round(rej / A('auditor').count * 100) + '% de auditadas' : '—'}</div></div>
     <div class="st"><div class="si" style="color:#F6851B">⇡</div><div class="sl">Comisiones</div><div class="sv" style="color:#F6851B">${fees.length ? esc(fees.map(f => f.value).join(' ')) : '$0.00'}</div><div class="ss">${st.mode === 'PAPER' ? 'modo práctica' : 'swaps reales'}</div></div>
    </div>
    <div class="two"><section><h3>Actividad <a href="#/activity">Ver todo</a></h3><div class="feedl">${rows.length ? rows.slice(0, 8).map(actRow).join('') : '<div class="empty">Sin actividad todavía. El scanner vigila las graduaciones de pump.fun.</div>'}</div></section>
-   <aside class="deskonly"><h3>Agentes <span class="ss">${st.agents.filter(a => a.status === 'running').length} de ${st.agents.length} activos</span></h3>${st.agents.map(a => agCard(a, null)).join('')}</aside></div>`;
+   <aside class="deskonly"><h3>Agentes <span class="apill">${act} de ${st.agents.length} activos</span></h3>${st.agents.map(a => agCard(a, null)).join('')}</aside></div>`;
   saveSeen(); setStatus(st.mode);
-  odometer($('#bal'), st.balance); Charts.line($('#line'), ch.points, ch.start, ch.marks);
+  odometer($('#bal'), st.balance); Charts.line($('#line'), ch.points, ch.start, []);
+  const pts = ch.points; if (pts.length > 1) { const t0 = pts[0][0], t1 = pts[pts.length - 1][0] || t0 + 1;
+    $('#pills').innerHTML = (ch.marks || []).filter(m => m.kind !== 'bought' && m.ts >= t0).map((m, i) => { const p = ((m.ts - t0) / Math.max(1, t1 - t0) * 100).toFixed(1);
+      return `<span class="cpill ${m.kind === 'sold' ? 'g' : 'r'}" style="left:min(${p}%,calc(100% - 70px));top:${8 + (i % 3) * 26}px;animation-delay:${600 + i * 120}ms">${esc(m.text)}</span>`; }).join(''); }
   V.querySelectorAll('.rg button').forEach(b => b.onclick = () => { S.range = b.dataset.r; render(); });
 }
 const AG = { scanner: ['Scanner', '◎', 'Vigila graduaciones'], auditor: ['Auditor', '⛨', 'Revisa 8 capas'], analyst: ['Analyst', '◔', 'Puntúa (reglas)'], executor: ['Executor', '⚡', 'Compra y vende'], risk: ['Risk', '⛉', 'Stop y trailing'] };
@@ -121,20 +160,27 @@ async function audit(mint) {
 }
 async function coin(mint) {
   const c = await api('coin/' + mint).catch(e => { if (String(e.message) === '404' || /unknown/.test(e.message)) return null; throw e; });
-  if (!c) { V.innerHTML = `<div class="top"><a class="back" href="#/home">‹ Back</a></div><div class="empty">Unknown coin. Search by name, symbol or mint of a coin the desk has seen.</div>`; return; }
+  if (!c) { V.innerHTML = `<div class="top"><a class="back" href="#/home">‹ Inicio</a></div><div class="empty">Moneda desconocida. El desk solo tiene datos de monedas que ha visto.</div>`; return; }
   const p = c.position, open = p && (p.status === 'open' || p.status === 'exiting');
-  V.innerHTML = `<div class="top"><a class="back" href="#/home">‹ Back</a>${c.shield ? `<span class="pill" style="background:rgba(0,211,90,.16);color:#00d35a">🛡 ${c.shield}</span>` : ''}</div>
-   <div style="font-size:22px;font-weight:700">${esc(c.name || mint.slice(0, 8))}</div><div class="lbl" style="color:var(--t2)">${esc(c.symbol || '')} · Solana · ${c.age_h}h old</div>
-   <div class="balance big" style="font-size:44px">${c.price != null ? '$' + Number(c.price).toPrecision(4) : 'n/a'}</div>
-   ${p ? `<div class="sub"><span class="${p.since_entry_pct >= 0 ? 'up' : 'down'}">${p.since_entry_pct >= 0 ? '▲' : '▼'} ${Math.abs(p.since_entry_pct).toFixed(2)}%</span> since entry</div>` : '<div class="sub">No position</div>'}
-   <canvas id="cd"></canvas>
-   <div class="stats"><div class="lbl">Market cap<b>${kusd(c.mcap)}</b></div><div class="lbl">Liquidity<b>${kusd(c.liq)}</b></div><div class="lbl">24h volume<b>${kusd(c.v24)}</b></div><div class="lbl">Holders<b>${c.holders != null ? c.holders.toLocaleString() : 'n/a'}</b></div></div>
-   ${p ? `<div class="full"><div style="font-weight:700">Your position · ${usd(p.size_usd)} in · Executor</div>
-     <div class="row"><span>Stop line</span><span>$${Number(p.stop_price).toPrecision(4)} · -${p.stop_pct}%</span></div>
-     <div class="row"><span>Trail line</span><span>${p.trail_line ? '$' + Number(p.trail_line).toPrecision(4) : 'not active'}</span></div>
-     <div class="row" style="border:0"><span>Timeout in</span><span>${open ? Math.floor(p.timeout_left_s / 3600) + 'h ' + Math.floor(p.timeout_left_s % 3600 / 60) + 'm' : 'closed · ' + esc(p.exit_reason)}</span></div></div>` : ''}
-   <a class="btn" href="${esc(c.coin_url)}" ${open ? 'style="background:#ff453a;color:#fff"' : ''}>${open ? 'Sell on FOMO' : 'Buy on FOMO'}</a>`;
-  Charts.candles($('#cd'), c.candles, open ? p.exit_line : null);
+  const ch = c.candles && c.candles.length > 1 ? (c.candles[c.candles.length - 1].c / c.candles[0].o - 1) * 100 : null;
+  const pc = p ? p.since_entry_pct : ch, upc = pc == null || pc >= 0;
+  V.innerHTML = `<div class="top"><a class="back" href="#/home">‹ Inicio</a>${c.shield ? `<span class="spill" style="color:#00E676">🛡 ${esc(c.shield)}</span>` : ''}</div>
+   <div class="ch">${tokImg(mint, c.symbol || c.name, 48)}<div><div style="font-size:22px;font-weight:700">${esc(c.name || mint.slice(0, 8))}</div><div class="ss">${esc(c.symbol || '')} · Solana · ${esc(c.age_h)}h</div></div></div>
+   <div class="bal big" style="font-size:44px">${c.price != null ? '$' + Number(c.price).toPrecision(4) : 'n/a'}</div>
+   <div class="pnl" style="color:${upc ? '#00E676' : '#FF3B30'}">${pc != null ? `${upc ? '▲' : '▼'} ${Math.abs(pc).toFixed(2)}%` : ''} <span>${p ? 'desde la compra' : 'en el gráfico'}</span></div>
+   <div class="chartw"><canvas id="cd"></canvas><div id="lvls"></div></div>
+   <div class="grid" style="margin-top:14px"><div class="st"><div class="sl">Market cap</div><div class="sv">${kusd(c.mcap)}</div></div><div class="st"><div class="sl">Liquidez</div><div class="sv">${kusd(c.liq)}</div></div>
+    <div class="st"><div class="sl">Holders</div><div class="sv">${c.holders != null ? Number(c.holders).toLocaleString() : 'n/a'}</div></div><div class="st"><div class="sl">Vol 24h</div><div class="sv">${kusd(c.v24)}</div></div></div>
+   ${p ? `<h3>Tu posición</h3><div class="feedl" style="padding:6px 16px"><div class="row"><span>Invertido</span><span>${usd(p.size_usd)}</span></div><div class="row"><span>Precio de compra</span><span class="mono">$${Number(p.entry_price).toPrecision(4)}</span></div>
+     <div class="row"><span>Stop</span><span class="mono" style="color:#FF3B30">$${Number(p.stop_price).toPrecision(4)} · -${p.stop_pct}%</span></div>
+     <div class="row"><span>Trailing</span><span>${p.trail_line ? '$' + Number(p.trail_line).toPrecision(4) : 'no activo'}</span></div>
+     <div class="row" style="border:0"><span>${open ? 'Cierra en' : 'Cerrada'}</span><span>${open ? Math.floor(p.timeout_left_s / 3600) + 'h ' + Math.floor(p.timeout_left_s % 3600 / 60) + 'm' : esc(p.exit_reason)}</span></div></div>` : ''}
+   <h3>Info</h3><div class="feedl" style="padding:6px 16px"><div class="row"><span>Mint</span><span class="mono">${short(mint)}</span></div><div class="row" style="border:0"><span>Auditoría</span><a href="#/audit/${esc(mint)}" style="color:#00E676">${esc(c.shield || 'ver')} ›</a></div></div>
+   <a class="btn" href="${esc(c.coin_url)}">Ver en FOMO</a>`;
+  Charts.candles($('#cd'), c.candles, null);
+  if (p && c.candles && c.candles.length) { let lo = Math.min(...c.candles.map(k => k.l)), hi = Math.max(...c.candles.map(k => k.h)); const L = [['Compra', p.entry_price, 'cy'], ['Stop', p.stop_price, 'r']];
+    L.forEach(([, v]) => { lo = Math.min(lo, v); hi = Math.max(hi, v); }); const H = 240 - 48;
+    $('#lvls').innerHTML = L.map(([t, v, k]) => `<div class="lvl ${k}" style="top:${6 + (hi - v) / ((hi - lo) || 1) * (H - 12)}px"><span>${t} $${Number(v).toPrecision(3)}</span></div>`).join(''); }
 }
 async function account() {
   const [ac, st] = await Promise.all([api('account'), api('settings')]);
