@@ -182,12 +182,6 @@ function agCard(a, rows) { const [n, ic, d] = AG[a.name] || [a.name, '•', ''];
   return `<div class="sheet"><div class="arow" style="border:0;padding:0"><div class="aic" style="background:${sc}22;color:${sc}">${ic}</div><div class="am"><div>${n}</div><div>${d} · ${esc(agInfo(a))}</div></div><div class="av" style="color:${sc}">${sl}</div></div>
    ${DP() || !rows ? '' : `<button class="switch ${a.status !== 'paused' ? 'on' : ''}" data-a="${a.name}" ${a.name === 'risk' && a.open ? 'disabled' : ''}></button>`}
    ${rows ? `<div class="dec">${rows.length ? rows.slice(0, 6).map(r => `<div><span class="mono">${tmB(r.ts)}</span><span>${esc(r.coin || r.mint.slice(0, 6))}</span><span style="color:${/kill|reject|fail|stop|^red$/i.test(r.verdict) ? '#FF4500' : '#34C759'}">${esc(r.verdict)}</span><span>${esc(r.reason || '')}</span></div>`).join('') : '<div style="color:#8E8E93;display:block">Sin decisiones todavía</div>'}</div>` : ''}</div>`; }
-async function agents() {
-  const st = await api('state'); S.state = st; const ds = await Promise.all(st.agents.map(a => api(`agents/${a.name}/decisions`).catch(() => ({ rows: [] }))));
-  setStatus(st.mode);
-  V.innerHTML = `<h3 style="margin-top:8px">Agentes <span class="ss">${st.agents.filter(a => a.status === 'running').length} de ${st.agents.length} activos</span></h3>` + st.agents.map((a, i) => agCard(a, ds[i].rows)).join('');
-  V.querySelectorAll('.switch').forEach(b => b.onclick = async () => { if (b.disabled) return; await api(`agents/${b.dataset.a}/${b.classList.contains('on') ? 'pause' : 'resume'}`, { method: 'POST' }); render(); });
-}
 async function activity() {
   const ac = await api('activity'); if (!DP()) api('pushes/read', { method: 'POST' }).catch(() => {});
   V.innerHTML = `<h3 style="margin-top:8px">Actividad</h3><div class="feedl">${ac.rows.length ? ac.rows.map(actRow).join('') : '<div class="empty">Sin actividad todavía</div>'}</div>`; saveSeen();
@@ -290,10 +284,78 @@ async function account() {
   V.querySelectorAll('input[data-k],select[data-k]').forEach(i => i.onchange = () => save(i.dataset.k, i.value));
   V.querySelectorAll('[data-bool]').forEach(b => b.onclick = () => { b.classList.toggle('on'); save(b.dataset.k, b.classList.contains('on')); });
 }
+// ---- v14 redesign: robots, chat feed, Trades, Billetera ----
+const BOTS = { scanner: ['#00E676', 'happy', 'Busca monedas nuevas'], auditor: ['#FF5A5F', 'focus', 'Revisa seguridad (8 capas)'], analyst: ['#FFD60A', 'think', 'Puntúa cada moneda'], executor: ['#64D2FF', 'happy', 'Compra y vende'], risk: ['#FF6B9A', 'focus', 'Protege con stop'],
+  abuelo: ['#B388FF', 'sleepy', ''], grokcito: ['#40C4FF', 'happy', ''], yila: ['#69F0AE', 'focus', ''], elon: ['#E0E0E0', 'wink', ''], rainer: ['#FFAB40', 'wide', ''], radar: ['#18FFFF', 'wide', ''] };
+const NAME2ID = { 'GROK ABUELO': 'abuelo', 'GROKCITO': 'grokcito', 'Yila': 'yila', 'Elon Musk': 'elon', 'RAINER': 'rainer', 'GROK RADAR': 'radar', Scanner: 'scanner', Auditor: 'auditor', Analyst: 'analyst', Executor: 'executor', Risk: 'risk' };
+function botSvg(id, size = 64, cls = '') { const [c, ex] = BOTS[id] || ['#9ecbff', 'happy'];
+  const eye = (x) => ex === 'sleepy' ? `<path d="M${x - 6} 52q6 4 12 0" stroke="${c}" stroke-width="3.5" fill="none" stroke-linecap="round"/>`
+    : ex === 'wink' && x > 50 ? `<path d="M${x - 6} 51h12" stroke="${c}" stroke-width="3.5" stroke-linecap="round"/>`
+    : `<g class="eye"><ellipse cx="${x}" cy="50" rx="${ex === 'wide' ? 7 : 6}" ry="${ex === 'focus' ? 5 : ex === 'wide' ? 9 : 8}" fill="${c}"/><circle cx="${x + 2}" cy="47" r="2" fill="#fff" opacity=".9"/></g>`;
+  return `<svg class="bot ${cls}" viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true"><defs><radialGradient id="bg${id}" cx="40%" cy="30%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfd8ec"/></radialGradient></defs>
+   <line x1="50" y1="10" x2="50" y2="22" stroke="#dfe7f7" stroke-width="3"/><circle cx="50" cy="9" r="4.5" fill="${c}"/>
+   <rect x="12" y="22" width="76" height="60" rx="30" fill="url(#bg${id})"/><rect x="21" y="34" width="58" height="34" rx="17" fill="#0b1430"/>
+   ${eye(39)}${eye(61)}${ex === 'think' ? '' : `<path d="M44 74q6 3 12 0" stroke="#9aa7c4" stroke-width="2.5" fill="none" stroke-linecap="round"/>`}</svg>`; }
+function chatRows(fd, ac, tr) { const out = [];
+  (tr || []).forEach(t => out.push({ ts: t.ts, id: t.side === 'buy' ? 'executor' : 'risk', who: t.side === 'buy' ? 'Executor' : 'Risk', tag: t.side === 'buy' ? 'COMPRA' : 'VENTA',
+    text: t.side === 'buy' ? `Compré ${t.symbol || ''}` : `Vendí ${t.symbol || ''} · ${t.pnl_usd >= 0 ? '+' : '−'}$${Math.abs(t.pnl_usd || 0).toFixed(2)}${t.pnl_pct != null ? ` (${t.pnl_pct}%)` : ''}`, mint: t.mint }));
+  ((fd && fd.rows) || []).forEach(r => { if (r.kind === 'buy' || r.kind === 'sell') return; out.push({ ts: r.ts, id: NAME2ID[r.agent] || 'scanner', who: r.agent, text: r.title + (r.value ? ' · ' + r.value : ''), mint: r.mint, tone: r.tone }); });
+  ((ac && ac.rows) || []).filter(r => r.kind === 'bought' || r.kind === 'sold' || r.kind === 'stopped').forEach(r => { if (out.some(o => o.mint === r.mint && o.tag && Math.abs(o.ts - r.ts) < 120)) return;
+    out.push({ ts: r.ts, id: AGL[r.agent] ? r.agent : 'executor', who: AGL[r.agent] || r.agent, tag: r.kind === 'bought' ? 'COMPRA' : 'VENTA', text: `${KIND[r.kind][2]} ${(r.title || '').split(' ').slice(1).join(' ')} · ${r.value}`, mint: r.mint }); });
+  return out.sort((a, b) => b.ts - a.ts); }
+function chatHtml(rows, n) { if (!rows.length) return '<div class="empty">Los agentes todavía no han hablado</div>';
+  return rows.slice(0, n).map((r, i) => `<${r.mint ? `a href="#/coin/${esc(r.mint)}"` : 'div'} class="msg" style="animation-delay:${Math.min(i, 12) * 70}ms">${botSvg(r.id, 34)}<div class="mb2"><div class="mh2"><b>${esc(r.who)}</b><span>${r.ts ? tmB(r.ts) : ''}</span></div>
+   <div class="bub">${r.tag ? `<i class="tag ${r.tag === 'COMPRA' ? 'g' : 'r'}">${r.tag}</i>` : ''}${esc(r.text)}</div></div></${r.mint ? 'a' : 'div'}>`).join(''); }
+async function agents() {
+  const [st, tm8, fd, ac, ch] = await Promise.all([api('state'), api('team').catch(() => null), api('feed').catch(() => null), api('activity').catch(() => ({ rows: [] })), api('chart?range=ALL').catch(() => ({}))]); S.state = st; setStatus(st.mode);
+  const team = (tm8 && tm8.team) || [];
+  const cards = st.agents.map(a => ({ id: a.name, name: (AG[a.name] || [a.name])[0], role: (AG[a.name] || [, , ''])[2], on: a.status === 'running', info: agInfo(a) }))
+    .concat(team.map(t => ({ id: t.id, name: t.name, role: t.role, on: t.status === 'activo', info: `${t.big == null ? '–' : t.big} ${t.label || ''}${t.detail ? ' · ' + t.detail : ''}` })));
+  const on = cards.filter(c => c.on).length;
+  V.innerHTML = `<h3 class="ttl">Agentes <span class="apill">${on} de ${cards.length} activos</span></h3>
+   <div class="botcar">${cards.map(c => `<div class="botc ${c.on ? '' : 'off'}">${botSvg(c.id, 86, 'float')}<b>${esc(c.name)}</b><small>${esc(c.role)}</small><span class="bst"><i class="sd" style="background:${c.on ? '#00E676' : '#8E8E93'}"></i>${c.on ? 'activo' : 'en espera'}</span><div class="binfo">${esc(c.info)}</div></div>`).join('')}</div>
+   <h3>Conversación en vivo <span class="live"><i class="pulse"></i>LIVE</span></h3><div class="chat">${chatHtml(chatRows(fd, ac, ch.trades), 40)}</div>
+   <div class="deskonly"><h3>Decisiones</h3>${st.agents.map(a => agCard(a, null)).join('')}</div>`; }
+function eyesLoop() { if (RM) return; const big = document.querySelector('.bigbot'); if (!big || big.dataset.on) return; big.dataset.on = 1;
+  const eyes = big.querySelectorAll('.eye'); let i = 0;
+  const P = [[0, 0], [5, -2], [5, 2], [0, 0], [-5, -1], [-5, 3], [0, -3], [2, 1]];
+  (function step() { if (!document.body.contains(big)) return; const [x, y] = P[i++ % P.length]; eyes.forEach(e => e.style.transform = `translate(${x}px,${y}px)`);
+    if (Math.random() < .25) eyes.forEach(e => { e.animate([{ transform: `translate(${x}px,${y}px) scaleY(1)` }, { transform: `translate(${x}px,${y}px) scaleY(.1)` }, { transform: `translate(${x}px,${y}px) scaleY(1)` }], { duration: 220 }); });
+    setTimeout(step, 1300 + Math.random() * 900); })(); }
+function tradeStats(st, trs) { const sells = trs.filter(t => t.side === 'sell'), wins = sells.filter(t => (t.pnl_usd || 0) > 0).length, buys = trs.filter(t => t.side === 'buy');
+  const sold = new Set(sells.map(t => t.mint + ':' + t.ts)); const openB = buys.filter(b => !sells.some(s => s.mint === b.mint && s.ts >= b.ts));
+  const base = 50, mult = st.balance / base;
+  return { sells, wins, buys, openB, mult, wr: sells.length ? Math.round(wins / sells.length * 100) : null }; }
+async function trades() {
+  const [st, ch, fd, ac] = await Promise.all([api('state'), api('chart?range=ALL'), api('feed').catch(() => null), api('activity').catch(() => ({ rows: [] }))]); S.state = st; setStatus(st.mode);
+  const trs = ch.trades || [], T = tradeStats(st, trs), up = T.mult >= 1;
+  const tr = (t, sell) => `<a class="arow" href="#/coin/${esc(t.mint)}">${tokImg(t.mint, t.symbol)}<div class="am"><div><i class="tag ${sell ? ((t.pnl_usd || 0) >= 0 ? 'g' : 'r') : 'g'}">${sell ? 'VENTA' : 'COMPRA'}</i> ${esc(t.symbol || short(t.mint))}</div><div>${tmB(t.ts)}${t.reason ? ' · ' + esc(t.reason) : ''}</div></div><div class="av"><div style="color:${!sell ? '#fff' : (t.pnl_usd || 0) >= 0 ? '#00E676' : '#FF3B30'}">${sell ? `${t.pnl_usd >= 0 ? '+' : '−'}$${Math.abs(t.pnl_usd).toFixed(2)}` : 'abierta'}</div><div class="avs">${sell && t.pnl_pct != null ? t.pnl_pct + '%' : ''}</div></div></a>`;
+  V.innerHTML = `<div class="thero">${botSvg('executor', 150, 'bigbot')}<div class="tst"><div class="lbl2">Saldo real</div><div class="bal big tb" id="bal"></div>
+    <div class="tmul ${up ? '' : 'dn'}">${T.mult.toFixed(2)}x <small>vs $50 inicial</small></div>
+    <div class="tkv"><span><b>${T.buys.length}</b> trades</span><span><b>${T.wr == null ? '—' : T.wr + '%'}</b> acierto</span></div></div></div>
+   <div class="chartw"><canvas id="line"></canvas><div id="pills"></div></div>
+   <h3>Posiciones abiertas <span class="apill">${T.openB.length}</span></h3><div class="feedl">${T.openB.length ? T.openB.map(t => tr(t, false)).join('') : '<div class="empty">Sin posiciones abiertas · el desk está buscando</div>'}</div>
+   <h3>Trades cerrados</h3><div class="feedl">${T.sells.length ? T.sells.slice().reverse().map(t => tr(t, true)).join('') : '<div class="empty">Aún no hay trades cerrados con dinero real</div>'}</div>
+   <h3>Agentes <a href="#/agents" class="vt">Ver todo</a></h3><div class="chat mini2">${chatHtml(chatRows(fd, ac, trs), 5)}</div>`;
+  odometer($('#bal'), st.balance); Charts.line($('#line'), ch.points || [], ch.start, []); tradeMarks(ch); eyesLoop(); }
+async function wallet() {
+  const [st, acct, ac, ch] = await Promise.all([api('state'), api('account'), api('activity').catch(() => ({ rows: [] })), api('chart?range=ALL').catch(() => ({ trades: [] }))]); S.state = st; setStatus(st.mode);
+  const w = acct.wallet || {}, sol = w.sol != null ? w.sol : st.sol, T = tradeStats(st, ch.trades || []);
+  const solUsd = sol != null && st.sol_price ? sol * st.sol_price : null;
+  V.innerHTML = `<div class="whero"><div class="lbl2">Billetera del bot · solo lectura</div><div class="bal big" id="bal"></div>
+    <a class="mono waddr" href="https://solscan.io/account/${esc(w.address)}" target="_blank" rel="noopener">${short(w.address)} ↗</a></div>
+   <h3>Activos</h3><div class="feedl">
+    <div class="arow"><div class="tok solt">◎</div><div class="am"><div>Solana</div><div>${sol != null ? Number(sol).toFixed(4) + ' SOL' : 'n/a'} · 1 SOL = ${usd(st.sol_price)}</div></div><div class="av"><div>${usd(solUsd)}</div></div></div>
+    ${T.openB.map(t => `<a class="arow" href="#/coin/${esc(t.mint)}">${tokImg(t.mint, t.symbol)}<div class="am"><div>${esc(t.symbol || short(t.mint))}</div><div>posición abierta</div></div><div class="av"><div class="avs">ver ›</div></div></a>`).join('')}</div>
+   <h3>Actividad <a href="#/activity" class="vt">Ver todo</a></h3><div class="feedl">${ac.rows.length ? ac.rows.slice(0, 12).map(actRow).join('') : '<div class="empty">Sin actividad todavía</div>'}</div>
+   <div class="note">Vista de solo lectura: sin depósitos, retiros ni transferencias desde la app. <a href="#/account" style="color:#7fb2ff">Ajustes y reglas ›</a></div>`;
+  odometer($('#bal'), st.balance); saveSeen(); }
+(function stars() { const s = document.getElementById('stars'); if (!s) return; let h = '';
+  for (let i = 0; i < 90; i++) h += `<i style="left:${Math.random() * 100}%;top:${Math.random() * 100}%;width:${Math.random() < .15 ? 2.5 : 1.5}px;height:${Math.random() < .15 ? 2.5 : 1.5}px;opacity:${(.25 + Math.random() * .6).toFixed(2)};animation-delay:${(Math.random() * 4).toFixed(1)}s"></i>`; s.innerHTML = h; })();
 async function render() { setStatus(S.state && S.state.mode, true);
   const h = location.hash.replace(/^#\/?/, '') || 'home', [path] = h.split('?'), [tab, arg] = path.split('/');
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-  try { if (tab === 'coin') await coin(decodeURIComponent(arg)); else if (tab === 'audit') await audit(arg); else await ({ home, agents, activity, account, search }[tab] || home)(); }
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab || (tab === 'account' && b.dataset.tab === 'wallet') || (tab === 'activity' && b.dataset.tab === 'wallet')));
+  try { if (tab === 'coin') await coin(decodeURIComponent(arg)); else if (tab === 'audit') await audit(arg); else await ({ home, trades, agents, wallet, activity, account, search }[tab] || home)(); }
   catch (e) { errView(e); }
   setStatus(S.state && S.state.mode); splashDone();
 }
@@ -305,6 +367,6 @@ function splashDone() { const sp = document.getElementById('splash'); if (!sp ||
   setTimeout(() => { sp.classList.add('out'); setTimeout(() => sp.remove(), 500); }, RM ? 100 : 250 + ls.length * 280 + 500); }
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => location.hash = '#/' + b.dataset.tab);
 keepD(); addEventListener('hashchange', () => { keepD(); render(); }); render();
-if (DP()) setInterval(() => { if (/home|agents|activity|^#?$/.test(location.hash)) render(); }, 30000);
-else if (TOK()) setInterval(() => { if (/home|agents|^#?$/.test(location.hash) || location.hash === '#/home') render(); }, 10000);  // header auth only; token never in a URL
+if (DP()) setInterval(() => { if (/home|trades|agents|wallet|activity|^#?$/.test(location.hash)) render(); }, 30000);
+else if (TOK()) setInterval(() => { if (/home|trades|agents|^#?$/.test(location.hash) || location.hash === '#/home') render(); }, 10000);  // header auth only; token never in a URL
 })();
