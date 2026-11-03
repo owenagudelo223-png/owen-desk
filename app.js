@@ -107,12 +107,11 @@ function tradeMarks(ch) {
   const valAt = t => { let i = pts.findIndex(p => p[0] >= t); if (i <= 0) return pts[i < 0 ? pts.length - 1 : 0][1]; const [a, b] = [pts[i - 1], pts[i]]; return a[1] + (b[1] - a[1]) * (t - a[0]) / Math.max(1e-9, b[0] - a[0]); };
   const f2 = v => (v < 0 ? '-' : '+') + '$' + Math.abs(v).toFixed(2);
   el.innerHTML = tr.filter(t => t.ts >= t0 && t.ts <= t1 + 120).map((t, i) => {
-    const x = (Math.min(t.ts, t1) - t0) / (t1 - t0) * w, y = bot - (valAt(t.ts) - lo) / (hi - lo) * (bot - top);
+    const fx = (Math.min(t.ts, t1) - t0) / (t1 - t0), x = fx * w, L = (fx * 100).toFixed(2) + '%', y = bot - (valAt(t.ts) - lo) / (hi - lo) * (bot - top);
     const tip = esc((t.symbol || '') + ' ' + t.side + ' ' + tm(t.ts));
-    if (t.side === 'buy') return `<span class="tmk buy" title="${tip}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;animation-delay:${600 + i * 80}ms"></span>`;
+    if (t.side === 'buy') return `<span class="tmk buy" title="${tip}" style="left:${L};top:${y.toFixed(1)}px;animation-delay:${600 + i * 80}ms"></span>`;
     const p = Number(t.pnl_usd) || 0, win = p >= 0, txt = win ? f2(p) : (t.pnl_pct != null ? Math.round(t.pnl_pct) + '% · ' : '') + f2(p);
-    const lx = Math.max(4, Math.min(x, w - 4));
-    return `<span class="tmk dot ${win ? 'g' : 'r'}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;animation-delay:${600 + i * 80}ms"></span><span class="tbadge ${win ? 'g' : 'r'}" title="${tip}" style="left:${lx.toFixed(1)}px;top:${(y - 22).toFixed(1)}px;--ax:${x < 50 ? '0%' : x > w - 50 ? '-100%' : '-50%'};animation-delay:${600 + i * 80}ms">${esc(txt)}</span>`;
+    return `<span class="tmk dot ${win ? 'g' : 'r'}" style="left:${L};top:${y.toFixed(1)}px;animation-delay:${600 + i * 80}ms"></span><span class="tbadge ${win ? 'g' : 'r'}" title="${tip}" style="left:${L};top:${(y - 22).toFixed(1)}px;--ax:${fx < .12 ? '0%' : fx > .88 ? '-100%' : '-50%'};animation-delay:${600 + i * 80}ms">${esc(txt)}</span>`;
   }).join('');
 }
 async function home() {
