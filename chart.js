@@ -12,9 +12,9 @@ const Charts = (() => {
     let lo = Math.min(start, ...pts.map(p => p[1])), hi = Math.max(start, ...pts.map(p => p[1])); if (hi - lo < 1e-9) { hi += 1; lo -= 1; }
     const X = t => (t - t0) / (t1 - t0) * w, Y = v => bot - (v - lo) / (hi - lo) * (bot - top);
     c.setLineDash([4, 4]); c.strokeStyle = 'rgba(235,235,245,0.3)'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, Y(start)); c.lineTo(w, Y(start)); c.stroke(); c.setLineDash([]);
-    const g = c.createLinearGradient(0, top, 0, bot); g.addColorStop(0, 'rgba(0,211,90,0.28)'); g.addColorStop(1, 'rgba(0,211,90,0)');
+    const g = c.createLinearGradient(0, top, 0, bot); g.addColorStop(0, 'rgba(52,199,89,0.35)'); g.addColorStop(1, 'rgba(52,199,89,0)');
     c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(X(p[0]), Y(p[1])) : c.moveTo(X(p[0]), Y(p[1])));
-    c.strokeStyle = '#00d35a'; c.lineWidth = 2; c.stroke();
+    c.strokeStyle = '#34C759'; c.lineWidth = 2.5; c.stroke();
     c.lineTo(X(pts[pts.length - 1][0]), bot); c.lineTo(X(pts[0][0]), bot); c.closePath(); c.fillStyle = g; c.fill();
     const rows = []; c.font = '600 12px -apple-system';
     (marks || []).forEach(m => {

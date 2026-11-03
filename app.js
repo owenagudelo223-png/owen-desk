@@ -19,7 +19,7 @@ async function api(p, opt = {}) {
 }
 let S = { range: 'LIVE', state: null, lastBal: null };
 function paperBadge(mode) { return mode === 'PAPER' ? '<span class="pill paper">PAPER</span>' : '<span class="pill" style="background:#2c2c2e">LIVE</span>'; }
-function errView(e) { V.innerHTML = e.message === 'unauthorized' ? '<div class="err">Not signed in. Open the app once with its #t= link.</div>' : `<div class="err">Can't reach the desk · ${esc(e.message)}</div>`; }
+function errView(e) { V.innerHTML = e.message === 'unauthorized' ? '<div class="err">Sin sesión. Abre la app una vez con su enlace #t=.</div>' : `<div class="err">No se pudo conectar con el desk · ${esc(e.message)}</div>`; }
 function odometer(el, val) {
   const s = usd(val), old = el.dataset.v || ''; el.dataset.v = s;
   el.innerHTML = [...s].map(ch => `<span>${esc(ch)}</span>`).join('');
@@ -42,36 +42,64 @@ function card(a, st) {
     <div class="lbl" style="font-size:15px">${a.last_exit === 'trail' ? 'Trailed out' : a.last_exit === 'stop' ? 'Stopped' : a.last_exit ? esc(a.last_exit) : 'No exits yet'}</div>
     <div class="pills"><span class="tp r">stop -${a.stop_pct}%</span><span class="tp g">trail ${a.trail_pct}%</span></div></div>`;
 }
+const BOG = ts => new Date(ts).toLocaleString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+const tmB = ts => new Date(ts * 1000).toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hour12: false });
+const short = a => a ? a.slice(0, 4) + '…' + a.slice(-4) : '—';
+const KIND = { bought: ['#34C759', '↓', 'Compra'], sold: ['#34C759', '↑', 'Venta'], stopped: ['#FF4500', '✕', 'Stop'], rejected: ['#FF4500', '✕', 'Rechazada'], fee: ['#F6851B', '⇡', 'Comisión'], withdraw: ['#F6851B', '⇡', 'Retiro'] };
+const seen = new Set(JSON.parse(sessionStorage.getItem('seen_rows') || '[]'));
 function actRow(r) {
   const href = r.kind === 'rejected' ? `#/audit/${r.mint}` : `#/coin/${r.mint}`;
-  const col = r.kind === 'sold' ? 'up' : r.kind === 'stopped' ? 'down' : '';
-  return `<a href="${href}"><div class="ic ${r.kind}">${esc((r.title.split(' ')[1] || '?')[0])}</div><div class="m"><div>${esc(r.title)}</div><div>${esc(r.subtitle)}</div></div><div class="v ${col}">${esc(r.value)}</div></a>`;
+  const [col, ic, lab] = KIND[r.kind] || ['#8E8E93', '•', r.kind];
+  const isNew = seen.size && !seen.has(r.id); seen.add(r.id);
+  const sym = (r.title || '').split(' ').slice(1).join(' ') || (r.mint || '').slice(0, 6);
+  const sub = (r.subtitle || '').replace(/^[^·]*·\s*/, '');
+  return `<a class="arow${isNew ? ' slide' : ''}" href="${href}"><div class="aic" style="background:${col}22;color:${col}">${ic}</div><div class="am"><div>${esc(sym)} · ${esc(lab)}</div><div>${r.ts ? tmB(r.ts) : ''} · ${esc(sub)}</div></div><div class="av" style="color:${col}">${esc(r.value)}</div></a>`;
 }
+function saveSeen() { sessionStorage.setItem('seen_rows', JSON.stringify([...seen].slice(-300))); }
+function setStatus(mode, busy) { const p = $('#stat'); if (!p) return; const auto = mode && mode !== 'PAPER';
+  p.innerHTML = busy ? '<i class="spin"></i>Actualizando' : `<i class="sd" style="background:${auto ? '#34C759' : '#8E8E93'}"></i>${auto ? 'AUTO' : 'PAPER'}`; }
+const RANGES = { LIVE: 'LIVE', '1H': '1H', '24H': '1D', '1W': '1W', ALL: 'ALL' };
+let WALLET = null;
 async function home() {
-  const [st, ch, ac] = await Promise.all([api('state'), api('chart?range=' + S.range), api('activity')]); S.state = st;
-  V.innerHTML = `<div class="top">${paperBadge(st.mode)}<input class="search" id="q" placeholder="Name, symbol or mint"><a class="bell" href="#/activity">🔔${st.unread ? '<i></i>' : ''}</a></div>
-   <div class="balance big" id="bal"></div><div class="sub"><span class="${st.today_pct >= 0 ? 'up' : 'down'}">${st.today_pct >= 0 ? '+' : ''}${st.today_pct.toFixed(2)}%</span> today <span class="pill mult">${st.multiplier.toFixed(2)}×</span></div>
-   <canvas id="line"></canvas><div class="ranges">${['LIVE', '1H', '4H', '1D', '1W', 'ALL'].map(r => `<button data-r="${r}" class="${r === S.range ? 'on' : ''}">${r}</button>`).join('')}</div>
-   <h2>Agents <small>${st.agents.filter(a => a.status === 'running').length} running</small></h2><div class="carousel">${st.agents.map(a => card(a, st)).join('')}</div>
-   <h2>Activity <a href="#/activity">See all</a></h2><div class="list">${ac.rows.length ? ac.rows.slice(0, 5).map(actRow).join('') : '<div class="empty">No activity yet. Scanner is watching new pump.fun migrations.</div>'}</div>`;
+  const [st, ch, ac, acct] = await Promise.all([api('state'), api('chart?range=' + RANGES[S.range]), api('activity'), WALLET ? Promise.resolve(null) : api('account').catch(() => null)]); S.state = st;
+  if (acct && acct.wallet) WALLET = acct.wallet.address;
+  const A = n => st.agents.find(a => a.name === n) || {};
+  const rows = ac.rows, closed = rows.filter(r => r.kind === 'sold' || r.kind === 'stopped');
+  const wins = rows.filter(r => r.kind === 'sold').length;
+  const pcts = closed.map(r => parseFloat(String(r.value).replace(/[^\d.+-]/g, ''))).filter(x => !isNaN(x)).sort((a, b) => a - b);
+  const med = pcts.length ? pcts[Math.floor(pcts.length / 2)] : null;
+  const rej = A('auditor').rejected || 0, scanned = A('scanner').count || 0, buys = A('executor').count || 0;
+  const fees = rows.filter(r => r.kind === 'fee');
+  const pnl = st.balance - st.start_value, up = pnl >= 0;
+  V.innerHTML = `<div class="hero"><div class="hl"><span>Desk • <span class="mono">${short(WALLET)}</span></span><span id="clock" class="mono">${BOG(Date.now())}</span></div>
+   <div class="bal big" id="bal"></div><div class="pnl" style="color:${up ? '#34C759' : '#FF4500'}">${up ? '+' : '−'}${usd(Math.abs(pnl))} (${up ? '+' : ''}${st.today_pct.toFixed(2)}%) <span>hoy</span></div></div>
+   <canvas id="line"></canvas><div class="rg">${Object.keys(RANGES).map(r => `<button data-r="${r}" class="${r === S.range ? 'on' : ''}">${r}</button>`).join('')}</div>
+   <h3>El desk hoy</h3><div class="grid">
+    <div class="st"><div class="si" style="color:#34C759">◎</div><div class="sl">Escaneadas</div><div class="sv">${scanned}</div><div class="ss">${A('scanner').waiting || 0} en espera</div></div>
+    <div class="st"><div class="si" style="color:#34C759">↓</div><div class="sl">Compras</div><div class="sv">${buys}</div><div class="ss">${closed.length ? `${wins} ganadoras · mediana ${med > 0 ? '+' : ''}${med != null ? med.toFixed(1) + '%' : '—'}` : 'sin cierres aún'}</div></div>
+    <div class="st"><div class="si" style="color:#FF4500">✕</div><div class="sl">Rechazadas / perdidas</div><div class="sv" style="color:#FF4500">${rej + rows.filter(r => r.kind === 'stopped').length}</div><div class="ss">${scanned ? Math.round(rej / Math.max(1, A('auditor').count || 1) * 100) + '% de auditadas' : '—'}</div></div>
+    <div class="st"><div class="si" style="color:#F6851B">⇡</div><div class="sl">Comisiones</div><div class="sv" style="color:#F6851B">${fees.length ? esc(fees.map(f => f.value).join(' ')) : '$0.00'}</div><div class="ss">${st.mode === 'PAPER' ? 'modo práctica' : 'swaps reales'}</div></div>
+   </div>
+   <h3>Actividad <a href="#/activity">Ver todo</a></h3><div class="feedl">${rows.length ? rows.slice(0, 8).map(actRow).join('') : '<div class="empty">Sin actividad todavía. El scanner vigila las graduaciones de pump.fun.</div>'}</div>`;
+  saveSeen(); setStatus(st.mode);
   odometer($('#bal'), st.balance); Charts.line($('#line'), ch.points, ch.start, ch.marks);
-  const an = st.agents.find(a => a.name === 'analyst'); Charts.ring($('#ring'), an.score, an.min_score);
-  V.querySelectorAll('.ranges button').forEach(b => b.onclick = () => { S.range = b.dataset.r; render(); });
-  $('#q').onkeydown = e => { if (e.key === 'Enter') { const v = e.target.value.trim(); if (v) location.hash = '#/coin/' + encodeURIComponent(v); } };
+  V.querySelectorAll('.rg button').forEach(b => b.onclick = () => { S.range = b.dataset.r; render(); });
 }
+const AG = { scanner: ['Scanner', '◎', 'Vigila graduaciones'], auditor: ['Auditor', '⛨', 'Revisa 8 capas'], analyst: ['Analyst', '◔', 'Puntúa (reglas)'], executor: ['Executor', '⚡', 'Compra y vende'], risk: ['Risk', '⛉', 'Stop y trailing'] };
+const STX = { running: ['activo', '#34C759'], paused: ['pausado', '#8E8E93'], error: ['error', '#FF4500'] };
 async function agents() {
-  const st = await api('state'); const ds = await Promise.all(st.agents.map(a => api(`agents/${a.name}/decisions`)));
-  V.innerHTML = `<div class="top"><b style="font-size:28px">Agents</b>${paperBadge(st.mode)}</div>` + st.agents.map((a, i) => `<div class="full">
-   <div class="row" style="border:0"><span style="font-weight:700;font-size:17px"><span class="dot ${a.status}"></span>${a.name[0].toUpperCase() + a.name.slice(1)}</span>
-   <button class="switch ${a.status !== 'paused' ? 'on' : ''}" data-a="${a.name}" ${a.name === 'risk' && a.open ? 'disabled title="locked while a position is open"' : ''}></button></div>
-   <div class="lbl" style="color:var(--t2)">${a.status} · today ${a.count != null ? a.count : a.open + ' open'}</div>
-   <table>${ds[i].rows.length ? ds[i].rows.map(r => `<tr><td>${tm(r.ts)}</td><td><a href="${esc(r.coin_url)}" style="color:#fff">${esc(r.coin || r.mint.slice(0, 6))}</a></td><td>${esc(r.verdict)}</td><td>${esc(r.reason || '')}</td></tr>`).join('') : '<tr><td colspan=4 style="color:var(--t3)">No decisions yet</td></tr>'}</table>
-   <a class="back" href="#/account?s=${a.name}" style="display:block;margin-top:10px">Settings</a></div>`).join('');
+  const st = await api('state'); const ds = await Promise.all(st.agents.map(a => api(`agents/${a.name}/decisions`).catch(() => ({ rows: [] }))));
+  setStatus(st.mode);
+  const info = a => a.name === 'scanner' ? `${a.count} pools · ${a.waiting} en espera` : a.name === 'auditor' ? `${a.count} auditadas · ${a.rejected} rechazadas` : a.name === 'analyst' ? `${a.count} puntuadas · mínimo ${a.min_score}` : a.name === 'executor' ? `${a.count} operaciones · ${a.stack_pct}% por operación` : `${a.open} abiertas · stop -${a.stop_pct}% · trail ${a.trail_pct}%`;
+  V.innerHTML = `<h3 style="margin-top:8px">Agentes <span class="ss">${st.agents.filter(a => a.status === 'running').length} de ${st.agents.length} activos</span></h3>` + st.agents.map((a, i) => { const [n, ic, d] = AG[a.name] || [a.name, '•', '']; const [sl, sc] = STX[a.status] || [a.status, '#8E8E93'];
+   return `<div class="sheet"><div class="arow" style="border:0;padding-top:0"><div class="aic" style="background:${sc}22;color:${sc}">${ic}</div><div class="am"><div>${n}</div><div>${d} · ${esc(info(a))}</div></div><div class="av" style="color:${sc}">${sl}</div></div>
+   ${DP() ? '' : `<button class="switch ${a.status !== 'paused' ? 'on' : ''}" data-a="${a.name}" ${a.name === 'risk' && a.open ? 'disabled' : ''}></button>`}
+   <div class="dec">${ds[i].rows.length ? ds[i].rows.slice(0, 6).map(r => `<div><span class="mono">${tmB(r.ts)}</span><span>${esc(r.coin || r.mint.slice(0, 6))}</span><span style="color:${/kill|reject|fail|stop/i.test(r.verdict) ? '#FF4500' : '#34C759'}">${esc(r.verdict)}</span><span>${esc(r.reason || '')}</span></div>`).join('') : '<div style="color:#8E8E93">Sin decisiones todavía</div>'}</div></div>`; }).join('');
   V.querySelectorAll('.switch').forEach(b => b.onclick = async () => { if (b.disabled) return; await api(`agents/${b.dataset.a}/${b.classList.contains('on') ? 'pause' : 'resume'}`, { method: 'POST' }); render(); });
 }
 async function activity() {
-  const ac = await api('activity'); api('pushes/read', { method: 'POST' }).catch(() => {});
-  V.innerHTML = `<div class="top"><b style="font-size:28px">Activity</b></div><div class="list">${ac.rows.length ? ac.rows.map(actRow).join('') : '<div class="empty">No activity yet</div>'}</div>`;
+  const ac = await api('activity'); if (!DP()) api('pushes/read', { method: 'POST' }).catch(() => {});
+  V.innerHTML = `<h3 style="margin-top:8px">Actividad</h3><div class="feedl">${ac.rows.length ? ac.rows.map(actRow).join('') : '<div class="empty">Sin actividad todavía</div>'}</div>`; saveSeen();
 }
 async function audit(mint) {
   const a = await api('audit/' + mint); const L = a.layers;
@@ -132,12 +160,19 @@ async function account() {
     const r = await api('mode', { method: 'POST', body: JSON.stringify(body) }); $('#msg').textContent = r.result; render(); });
   const s = new URLSearchParams(location.hash.split('?')[1] || '').get('s'); if (s) { const map = { scanner: 'scanner', auditor: 'auditor', analyst: 'analyst', executor: 'executor', risk: 'risk' }; const el = $('#s-' + map[s]); if (el) el.scrollIntoView(); }
 }
-async function render() {
+async function render() { setStatus(S.state && S.state.mode, true);
   const h = location.hash.replace(/^#\/?/, '') || 'home', [path] = h.split('?'), [tab, arg] = path.split('/');
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   try { if (tab === 'coin') await coin(decodeURIComponent(arg)); else if (tab === 'audit') await audit(arg); else await ({ home, agents, activity, account }[tab] || home)(); }
   catch (e) { errView(e); }
+  setStatus(S.state && S.state.mode); splashDone();
 }
+setInterval(() => { const c = document.getElementById('clock'); if (c) c.textContent = BOG(Date.now()); }, 1000);
+function splashDone() { const sp = document.getElementById('splash'); if (!sp || sp.dataset.done) return; sp.dataset.done = 1;
+  const st = S.state || {}, ls = [...sp.querySelectorAll('.ln')];
+  const m = ls.find(l => l.dataset.k === 'mode'); if (m) m.querySelector('b').textContent = st.mode === 'PAPER' || !st.mode ? 'PAPER' : 'AUTO';
+  ls.forEach((l, i) => setTimeout(() => l.classList.add('ok'), RM ? 0 : 250 + i * 280));
+  setTimeout(() => { sp.classList.add('out'); setTimeout(() => sp.remove(), 500); }, RM ? 100 : 250 + ls.length * 280 + 500); }
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => location.hash = '#/' + b.dataset.tab);
 addEventListener('hashchange', render); render();
 if (DP()) setInterval(() => { if (/home|agents|activity|^#?$/.test(location.hash)) render(); }, 30000);
