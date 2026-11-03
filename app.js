@@ -89,6 +89,10 @@ function events(rows) {
     if (p && parseFloat(p[1]) >= 10 && seen.size && !seen.has(r.id)) confetti(); done.add(r.id); });
   localStorage.setItem('confetti_ids', JSON.stringify([...done].slice(-500)));
 }
+const TIC = { abuelo: '👴', grokcito: '🔎', yila: '🛡', elon: '𝕏', rainer: '👁', radar: '📡' };
+function tmMini(t) { const on = t.status === 'activo';
+  return `<div class="mini team"><div class="mh"><span class="mic">${TIC[t.id] || '•'}</span><b>${esc(t.name)}</b><span class="sd" style="background:${on ? '#34C759' : '#8E8E93'}" title="${on ? 'activo' : 'en espera'}"></span></div>
+   <div class="ms trole">${esc(t.role || '')}${on ? '' : ' · en espera'}</div><div class="mb">${esc(t.big == null ? '–' : t.big)}</div><div class="ms">${esc(t.label || '')}</div><div class="ms tdet">${esc(t.detail || '')}</div></div>`; }
 function agMini(a) { const [n, ic] = AG[a.name] || [a.name, '•']; const [sl, sc] = STX[a.status] || [a.status, '#8E8E93'];
   let body = '';
   if (a.name === 'analyst') { const sc2 = a.score == null ? 0 : a.score, R = 26, C = 2 * Math.PI * R;
@@ -115,7 +119,8 @@ function tradeMarks(ch) {
   }).join('');
 }
 async function home() {
-  const [st, ch, ac, acct] = await Promise.all([api('state'), api('chart?range=' + RANGES[S.range]), api('activity'), WALLET ? Promise.resolve(null) : api('account').catch(() => null)]); S.state = st;
+  const [st, ch, ac, acct, tm8] = await Promise.all([api('state'), api('chart?range=' + RANGES[S.range]), api('activity'), WALLET ? Promise.resolve(null) : api('account').catch(() => null), api('team').catch(() => null)]); S.state = st;
+  const team = (tm8 && Array.isArray(tm8.team)) ? tm8.team : [];
   if (acct && acct.wallet) WALLET = acct.wallet.address;
   const A = n => st.agents.find(a => a.name === n) || {};
   const rows = ac.rows, closed = rows.filter(r => r.kind === 'sold' || r.kind === 'stopped');
@@ -125,12 +130,12 @@ async function home() {
   const rej = A('auditor').rejected || 0, scanned = A('scanner').count || 0, buys = A('executor').count || 0;
   const fees = rows.filter(r => r.kind === 'fee');
   const sv = st.start_value || st.balance, pnl = st.balance - sv, up = pnl >= 0, mult = sv ? st.balance / sv : 1;
-  const act = st.agents.filter(a => a.status === 'running').length;
+  const act = st.agents.filter(a => a.status === 'running').length + team.filter(t => t.status === 'activo').length;
   events(rows);
   V.innerHTML = `<div class="hero"><div class="hl"><span>Desk • <span class="mono">${short(WALLET)}</span></span><span id="clock" class="mono">${BOG(Date.now())}</span></div>
    <div class="bal big" id="bal"></div><div class="pnl" style="color:${up ? '#00E676' : '#FF3B30'}">${up ? '+' : '−'}${usd(Math.abs(pnl))} (${up ? '+' : ''}${st.today_pct.toFixed(2)}%) <span>hoy</span> <i class="mult ${up ? '' : 'dn'}"><svg viewBox="0 0 12 12"><path d="${up ? 'M1 9l3.5-3.5 2 2L11 3M8 3h3v3' : 'M1 3l3.5 3.5 2-2L11 9M8 9h3V6'}"/></svg>${mult.toFixed(2)}x</i></div>${st.real && st.sol != null ? `<div class="solln mono">${Number(st.sol).toFixed(4)} SOL · 1 SOL = ${usd(st.sol_price)} · dinero real</div>` : ''}</div>
    <div class="chartw"><canvas id="line"></canvas><div id="pills"></div></div><div class="rg">${Object.keys(RANGES).map(r => `<button data-r="${r}" class="${r === S.range ? 'on' : ''}">${r === 'LIVE' ? '<i class="pulse"></i>' : ''}${r}</button>`).join('')}</div>
-   <div class="mobonly"><h3>Agentes <span class="apill">${act} activos</span></h3><div class="carousel2">${st.agents.map(agMini).join('')}</div></div>
+   <div class="mobonly"><h3>Agentes <span class="apill">${act} activos</span></h3><div class="carousel2">${st.agents.map(agMini).join('')}${team.map(tmMini).join('')}</div></div>
    <h3>El desk hoy</h3><div class="grid">
     <div class="st"><div class="si" style="color:#00E676">◎</div><div class="sl">Escaneadas</div><div class="sv">${scanned}</div><div class="ss">${A('scanner').waiting || 0} en espera</div></div>
     <div class="st"><div class="si" style="color:#00E676">↓</div><div class="sl">Compras</div><div class="sv">${buys}</div><div class="ss">${closed.length ? `${wins} ganadoras · mediana ${med > 0 ? '+' : ''}${med != null ? med.toFixed(1) + '%' : '—'}` : 'sin cierres aún'}</div></div>

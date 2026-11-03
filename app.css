@@ -175,3 +175,4 @@ html,body{font-family:Inter,-apple-system,"SF Pro Text",system-ui,sans-serif;fon
 .tbadge.g{background:#00E676;color:#000}.tbadge.r{background:#FF3B30;color:#fff}
 @keyframes tpop{to{transform:translate(-50%,-50%) scale(1)}}@keyframes bpop{to{transform:translate(var(--ax,-50%),-50%) scale(1)}}
 @media (prefers-reduced-motion: reduce){.tmk{animation:none;transform:translate(-50%,-50%)}.tbadge{animation:none;transform:translate(var(--ax,-50%),-50%)}}
+.mini.team .trole{margin:-2px 0 4px;color:rgba(235,235,245,.6)}.mini.team .tdet{margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
