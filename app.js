@@ -159,6 +159,7 @@ async function audit(mint) {
     await api('settings', { method: 'POST', body: JSON.stringify({ 'auditor.enabled': !on }) }); $('#aud').classList.toggle('on'); };
 }
 async function coin(mint) {
+  if (!S.state) S.state = await api('state').catch(() => null);
   const c = await api('coin/' + mint).catch(e => { if (String(e.message) === '404' || /unknown/.test(e.message)) return null; throw e; });
   if (!c) { V.innerHTML = `<div class="top"><a class="back" href="#/home">‹ Inicio</a></div><div class="empty">Moneda desconocida. El desk solo tiene datos de monedas que ha visto.</div>`; return; }
   const p = c.position, open = p && (p.status === 'open' || p.status === 'exiting');
