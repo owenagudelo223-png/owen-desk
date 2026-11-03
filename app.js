@@ -257,7 +257,5 @@ function splashDone() { const sp = document.getElementById('splash'); if (!sp ||
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => location.hash = '#/' + b.dataset.tab);
 keepD(); addEventListener('hashchange', () => { keepD(); render(); }); render();
 if (DP()) setInterval(() => { if (/home|agents|activity|^#?$/.test(location.hash)) render(); }, 30000);
-else if (TOK() && window.EventSource) { const es = new EventSource('/api/stream?t=' + encodeURIComponent(TOK()));
-  let tmr; const soon = () => { clearTimeout(tmr); tmr = setTimeout(() => { if (/home|agents|^#?$/.test(location.hash) || location.hash === '#/home') render(); }, 800); };
-  ['scan', 'verdict', 'signal', 'fill', 'exit', 'balance'].forEach(ev => es.addEventListener(ev, soon)); }
+else if (TOK()) setInterval(() => { if (/home|agents|^#?$/.test(location.hash) || location.hash === '#/home') render(); }, 10000);  // header auth only; token never in a URL
 })();
