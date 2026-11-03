@@ -118,8 +118,33 @@ function tradeMarks(ch) {
     return `<span class="tmk dot ${win ? 'g' : 'r'}" style="left:${L};top:${y.toFixed(1)}px;animation-delay:${600 + i * 80}ms"></span><span class="tbadge ${win ? 'g' : 'r'}" title="${tip}" style="left:${L};top:${(y - 22).toFixed(1)}px;--ax:${fx < .12 ? '0%' : fx > .88 ? '-100%' : '-50%'};animation-delay:${600 + i * 80}ms">${esc(txt)}</span>`;
   }).join('');
 }
+const FIC = {
+  buy: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  sell: '<svg viewBox="0 0 24 24"><path d="M4 18l5-6 4 3 7-9M15 6h5v5"/></svg>',
+  stop: '<svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7c0 2.6 1.4 4.3 3 5.3V19h8v-3.7c1.6-1 3-2.7 3-5.3a7 7 0 0 0-7-7z"/><circle cx="9.3" cy="10.5" r="1.3"/><circle cx="14.7" cy="10.5" r="1.3"/><path d="M10.5 19v2M13.5 19v2"/></svg>',
+  info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8h.01"/></svg>' };
+function feedSec(fd) {
+  const rows = fd && Array.isArray(fd.rows) ? fd.rows : [];
+  const row = r => { const c = r.tone === 'g' ? '#00E676' : r.tone === 'r' ? '#FF3B30' : '#8E8E93';
+    const tag = r.mint ? 'a' : 'div', href = r.mint ? ` href="#/coin/${esc(r.mint)}"` : '';
+    return `<${tag} class="arow frow"${href}><div class="aic fic" style="background:${c}22;color:${c}">${FIC[r.kind] || FIC.info}</div><div class="am"><div>${esc(r.title)}</div><div>${esc(r.agent)} · ${r.ts ? tmB(r.ts) : ''}</div></div><div class="av"><div style="color:${c}">${esc(r.value || '')}</div></div></${tag}>`; };
+  return `<section class="feedsec"><h3>Actividad <a href="#/activity" class="vt">Ver todo</a></h3>${fd && !fd.real && rows.length ? '<div class="fnote">Aún no hay operaciones con dinero real · actividad reciente de los agentes</div>' : ''}<div class="feedl">${rows.length ? rows.map(row).join('') : '<div class="empty">Sin actividad todavía</div>'}</div></section>`;
+}
+let COINS = null;
+async function search() {
+  V.innerHTML = `<div class="top"><a class="back" href="#/home">‹ Inicio</a><span class="lbl">Buscar</span></div>
+   <div class="srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="q" type="search" placeholder="Símbolo o mint" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+   <div class="feedl" id="sres"><div class="empty">Cargando monedas…</div></div>`;
+  const q = $('#q'); q.focus();
+  if (!COINS) COINS = (await api('coins').catch(() => ({ rows: [] }))).rows || [];
+  const draw = () => { const t = q.value.trim().toLowerCase();
+    const L = (t ? COINS.filter(c => c.s.toLowerCase().includes(t) || c.n.toLowerCase().includes(t) || c.m.toLowerCase().startsWith(t) || (t.length > 8 && c.m.toLowerCase().includes(t))) : COINS).slice(0, 30);
+    $('#sres').innerHTML = L.length ? L.map(c => `<a class="arow" href="${c.p || !DP() ? '#/coin/' + esc(c.m) : esc(c.u)}">${tokImg(c.m, c.s || c.n)}<div class="am"><div>${esc(c.s || c.n || c.m.slice(0, 6))}</div><div class="mono">${c.n ? esc(c.n) + " · " : ""}${short(c.m)}</div></div><div class="av"><div class="avs">${c.p || !DP() ? 'ver ›' : 'FOMO ›'}</div></div></a>`).join('')
+      : `<div class="empty">${COINS.length ? 'Sin resultados' : 'Sin monedas todavía'}</div>`; };
+  q.oninput = draw; draw();
+}
 async function home() {
-  const [st, ch, ac, acct, tm8] = await Promise.all([api('state'), api('chart?range=' + RANGES[S.range]), api('activity'), WALLET ? Promise.resolve(null) : api('account').catch(() => null), api('team').catch(() => null)]); S.state = st;
+  const [st, ch, ac, acct, tm8, fd] = await Promise.all([api('state'), api('chart?range=' + RANGES[S.range]), api('activity'), WALLET ? Promise.resolve(null) : api('account').catch(() => null), api('team').catch(() => null), api('feed').catch(() => null)]); S.state = st;
   const team = (tm8 && Array.isArray(tm8.team)) ? tm8.team : [];
   if (acct && acct.wallet) WALLET = acct.wallet.address;
   const A = n => st.agents.find(a => a.name === n) || {};
@@ -136,13 +161,14 @@ async function home() {
    <div class="bal big" id="bal"></div><div class="pnl" style="color:${up ? '#00E676' : '#FF3B30'}">${up ? '+' : '−'}${usd(Math.abs(pnl))} (${up ? '+' : ''}${st.today_pct.toFixed(2)}%) <span>hoy</span> <i class="mult ${up ? '' : 'dn'}"><svg viewBox="0 0 12 12"><path d="${up ? 'M1 9l3.5-3.5 2 2L11 3M8 3h3v3' : 'M1 3l3.5 3.5 2-2L11 9M8 9h3V6'}"/></svg>${mult.toFixed(2)}x</i></div>${st.real && st.sol != null ? `<div class="solln mono">${Number(st.sol).toFixed(4)} SOL · 1 SOL = ${usd(st.sol_price)} · dinero real</div>` : ''}</div>
    <div class="chartw"><canvas id="line"></canvas><div id="pills"></div></div><div class="rg">${Object.keys(RANGES).map(r => `<button data-r="${r}" class="${r === S.range ? 'on' : ''}">${r === 'LIVE' ? '<i class="pulse"></i>' : ''}${r}</button>`).join('')}</div>
    <div class="mobonly"><h3>Agentes <span class="apill">${act} activos</span></h3><div class="carousel2">${st.agents.map(agMini).join('')}${team.map(tmMini).join('')}</div></div>
+   ${feedSec(fd)}
    <h3>El desk hoy</h3><div class="grid">
     <div class="st"><div class="si" style="color:#00E676">◎</div><div class="sl">Escaneadas</div><div class="sv">${scanned}</div><div class="ss">${A('scanner').waiting || 0} en espera</div></div>
     <div class="st"><div class="si" style="color:#00E676">↓</div><div class="sl">Compras</div><div class="sv">${buys}</div><div class="ss">${closed.length ? `${wins} ganadoras · mediana ${med > 0 ? '+' : ''}${med != null ? med.toFixed(1) + '%' : '—'}` : 'sin cierres aún'}</div></div>
     <div class="st"><div class="si" style="color:#FF3B30">✕</div><div class="sl">Rechazadas / perdidas</div><div class="sv" style="color:#FF3B30">${rej + rows.filter(r => r.kind === 'stopped').length}</div><div class="ss">${A('auditor').count ? Math.round(rej / A('auditor').count * 100) + '% de auditadas' : '—'}</div></div>
     <div class="st"><div class="si" style="color:#F6851B">⇡</div><div class="sl">Comisiones</div><div class="sv" style="color:#F6851B">${fees.length ? esc(fees.map(f => f.value).join(' ')) : '$0.00'}</div><div class="ss">${st.mode === 'PAPER' ? 'modo práctica' : 'swaps reales'}</div></div>
    </div>
-   <div class="two"><section><h3>Actividad <a href="#/activity">Ver todo</a></h3><div class="feedl">${rows.length ? rows.slice(0, 8).map(actRow).join('') : '<div class="empty">Sin actividad todavía. El scanner vigila las graduaciones de pump.fun.</div>'}</div></section>
+   <div class="two"><section></section>
    <aside class="deskonly"><h3>Agentes <span class="apill">${act} de ${st.agents.length} activos</span></h3>${st.agents.map(a => agCard(a, null)).join('')}</aside></div>`;
   saveSeen(); setStatus(st.mode);
   odometer($('#bal'), st.balance); Charts.line($('#line'), ch.points, ch.start, []);
@@ -267,7 +293,7 @@ async function account() {
 async function render() { setStatus(S.state && S.state.mode, true);
   const h = location.hash.replace(/^#\/?/, '') || 'home', [path] = h.split('?'), [tab, arg] = path.split('/');
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-  try { if (tab === 'coin') await coin(decodeURIComponent(arg)); else if (tab === 'audit') await audit(arg); else await ({ home, agents, activity, account }[tab] || home)(); }
+  try { if (tab === 'coin') await coin(decodeURIComponent(arg)); else if (tab === 'audit') await audit(arg); else await ({ home, agents, activity, account, search }[tab] || home)(); }
   catch (e) { errView(e); }
   setStatus(S.state && S.state.mode); splashDone();
 }

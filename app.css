@@ -176,3 +176,12 @@ html,body{font-family:Inter,-apple-system,"SF Pro Text",system-ui,sans-serif;fon
 @keyframes tpop{to{transform:translate(-50%,-50%) scale(1)}}@keyframes bpop{to{transform:translate(var(--ax,-50%),-50%) scale(1)}}
 @media (prefers-reduced-motion: reduce){.tmk{animation:none;transform:translate(-50%,-50%)}.tbadge{animation:none;transform:translate(var(--ax,-50%),-50%)}}
 .mini.team .trole{margin:-2px 0 4px;color:rgba(235,235,245,.6)}.mini.team .tdet{margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.brand .mascot{width:30px;height:30px;border-radius:50%;filter:drop-shadow(0 0 6px #00E67655)}
+.feedsec h3 .vt{color:#00E676;font-size:15px;font-weight:600}.fnote{color:var(--t2);font-size:12px;margin:-4px 2px 8px}
+.fic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.srch{display:flex;align-items:center;gap:8px;background:var(--c1);border-radius:14px;padding:0 14px;margin:6px 0 12px}
+.srch svg{width:18px;height:18px;flex:none;fill:none;stroke:#8E8E93;stroke-width:2;stroke-linecap:round}
+.srch input{flex:1;background:none;border:0;color:#fff;font-size:17px;padding:13px 0;outline:none}
+.frow .am{min-width:0;flex:1}.frow .am>div:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .av{max-width:38%;min-width:0}.frow .av>div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
