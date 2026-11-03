@@ -110,3 +110,21 @@ h3 a{font-size:15px;color:var(--g);font-weight:500}
 .ln{padding:3px 0}.ln i{display:inline-block;width:18px;font-style:normal}.ln i::before{content:"⠿";color:#636366}
 .ln.ok{color:#d1d1d6}.ln.ok i::before{content:"✓";color:var(--g)}
 @media(prefers-reduced-motion:reduce){.slide,.spin{animation:none}}
+/* ---- desktop >=900px ---- */
+.deskonly,.sideonly{display:none}
+@media(min-width:900px){
+ body{padding:0 0 0 220px}
+ #tabs{top:0;bottom:0;right:auto;width:220px;max-width:none;margin:0;flex-direction:column;align-items:stretch;padding:20px 12px;gap:4px;border-top:0;border-right:.5px solid #2C2C2E;background:#0a0a0a}
+ #tabs .sideonly{display:flex;padding:0 10px 22px;font-size:19px}#tabs .sideonly .ico{width:32px;height:32px}
+ #tabs button{flex:none;height:44px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:10px;font-size:15px;font-weight:600;text-align:left;color:#8E8E93}
+ #tabs button::before{margin:0;width:18px;height:18px;border-radius:5px}
+ #tabs button.on{background:#1C1C1E;color:#fff}#tabs button.on::before{background:#34C759}
+ .col{max-width:1500px;padding:0 32px}main{padding:0}
+ header#hdr{padding:0;height:64px}header#hdr .brand{visibility:hidden}
+ .bal{font-size:64px}#line{height:300px!important}
+ .grid{grid-template-columns:repeat(4,1fr);gap:14px}
+ .two{display:grid;grid-template-columns:1.6fr 1fr;gap:20px;align-items:start}
+ .deskonly{display:block}.deskonly .sheet{margin-bottom:10px}
+ .feedl{padding:4px 18px}
+ #splash .term{font-size:14px}
+}

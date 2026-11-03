@@ -2,7 +2,7 @@
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 // token: from #t= once, then localStorage. Never sent anywhere but our own /api.
 (function () { const m = location.hash.match(/[#&]t=([^&]+)/); if (m) { localStorage.setItem('desk_t', decodeURIComponent(m[1])); const g = location.hash.match(/[#&]go=([^&]+)/); history.replaceState(null, '', location.pathname + '#/' + (g ? decodeURIComponent(g[1]) : 'home')); } })();
-(function () { const m = location.hash.match(/[#&]d=([^&]+)/); if (m) { localStorage.setItem('desk_d', decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname + '#/home'); } })();
+(function () { const m = location.hash.match(/[#&]d=([^&]+)/); if (m) { localStorage.setItem('desk_d', decodeURIComponent(m[1])); const g = location.hash.match(/[#&]go=([^&]+)/); history.replaceState(null, '', location.pathname + '#/' + (g ? decodeURIComponent(g[1]) : 'home')); } })();
 const DP = () => location.protocol === 'https:' && location.hostname.endsWith('github.io') ? (localStorage.getItem('desk_d') || '') : '';
 const TOK = () => localStorage.getItem('desk_t') || '';
 const $ = s => document.querySelector(s), V = $('#view');
@@ -80,21 +80,23 @@ async function home() {
     <div class="st"><div class="si" style="color:#FF4500">✕</div><div class="sl">Rechazadas / perdidas</div><div class="sv" style="color:#FF4500">${rej + rows.filter(r => r.kind === 'stopped').length}</div><div class="ss">${scanned ? Math.round(rej / Math.max(1, A('auditor').count || 1) * 100) + '% de auditadas' : '—'}</div></div>
     <div class="st"><div class="si" style="color:#F6851B">⇡</div><div class="sl">Comisiones</div><div class="sv" style="color:#F6851B">${fees.length ? esc(fees.map(f => f.value).join(' ')) : '$0.00'}</div><div class="ss">${st.mode === 'PAPER' ? 'modo práctica' : 'swaps reales'}</div></div>
    </div>
-   <h3>Actividad <a href="#/activity">Ver todo</a></h3><div class="feedl">${rows.length ? rows.slice(0, 8).map(actRow).join('') : '<div class="empty">Sin actividad todavía. El scanner vigila las graduaciones de pump.fun.</div>'}</div>`;
+   <div class="two"><section><h3>Actividad <a href="#/activity">Ver todo</a></h3><div class="feedl">${rows.length ? rows.slice(0, 8).map(actRow).join('') : '<div class="empty">Sin actividad todavía. El scanner vigila las graduaciones de pump.fun.</div>'}</div></section>
+   <aside class="deskonly"><h3>Agentes <span class="ss">${st.agents.filter(a => a.status === 'running').length} de ${st.agents.length} activos</span></h3>${st.agents.map(a => agCard(a, null)).join('')}</aside></div>`;
   saveSeen(); setStatus(st.mode);
   odometer($('#bal'), st.balance); Charts.line($('#line'), ch.points, ch.start, ch.marks);
   V.querySelectorAll('.rg button').forEach(b => b.onclick = () => { S.range = b.dataset.r; render(); });
 }
 const AG = { scanner: ['Scanner', '◎', 'Vigila graduaciones'], auditor: ['Auditor', '⛨', 'Revisa 8 capas'], analyst: ['Analyst', '◔', 'Puntúa (reglas)'], executor: ['Executor', '⚡', 'Compra y vende'], risk: ['Risk', '⛉', 'Stop y trailing'] };
 const STX = { running: ['activo', '#34C759'], paused: ['pausado', '#8E8E93'], error: ['error', '#FF4500'] };
+function agInfo(a) { return a.name === 'scanner' ? `${a.count} pools · ${a.waiting} en espera` : a.name === 'auditor' ? `${a.count} auditadas · ${a.rejected} rechazadas` : a.name === 'analyst' ? `${a.count} puntuadas · mínimo ${a.min_score}` : a.name === 'executor' ? `${a.count} operaciones · ${a.stack_pct}% por operación` : `${a.open} abiertas · stop -${a.stop_pct}% · trail ${a.trail_pct}%`; }
+function agCard(a, rows) { const [n, ic, d] = AG[a.name] || [a.name, '•', '']; const [sl, sc] = STX[a.status] || [a.status, '#8E8E93'];
+  return `<div class="sheet"><div class="arow" style="border:0;padding:0"><div class="aic" style="background:${sc}22;color:${sc}">${ic}</div><div class="am"><div>${n}</div><div>${d} · ${esc(agInfo(a))}</div></div><div class="av" style="color:${sc}">${sl}</div></div>
+   ${DP() || !rows ? '' : `<button class="switch ${a.status !== 'paused' ? 'on' : ''}" data-a="${a.name}" ${a.name === 'risk' && a.open ? 'disabled' : ''}></button>`}
+   ${rows ? `<div class="dec">${rows.length ? rows.slice(0, 6).map(r => `<div><span class="mono">${tmB(r.ts)}</span><span>${esc(r.coin || r.mint.slice(0, 6))}</span><span style="color:${/kill|reject|fail|stop/i.test(r.verdict) ? '#FF4500' : '#34C759'}">${esc(r.verdict)}</span><span>${esc(r.reason || '')}</span></div>`).join('') : '<div style="color:#8E8E93">Sin decisiones todavía</div>'}</div>` : ''}</div>`; }
 async function agents() {
   const st = await api('state'); S.state = st; const ds = await Promise.all(st.agents.map(a => api(`agents/${a.name}/decisions`).catch(() => ({ rows: [] }))));
   setStatus(st.mode);
-  const info = a => a.name === 'scanner' ? `${a.count} pools · ${a.waiting} en espera` : a.name === 'auditor' ? `${a.count} auditadas · ${a.rejected} rechazadas` : a.name === 'analyst' ? `${a.count} puntuadas · mínimo ${a.min_score}` : a.name === 'executor' ? `${a.count} operaciones · ${a.stack_pct}% por operación` : `${a.open} abiertas · stop -${a.stop_pct}% · trail ${a.trail_pct}%`;
-  V.innerHTML = `<h3 style="margin-top:8px">Agentes <span class="ss">${st.agents.filter(a => a.status === 'running').length} de ${st.agents.length} activos</span></h3>` + st.agents.map((a, i) => { const [n, ic, d] = AG[a.name] || [a.name, '•', '']; const [sl, sc] = STX[a.status] || [a.status, '#8E8E93'];
-   return `<div class="sheet"><div class="arow" style="border:0;padding-top:0"><div class="aic" style="background:${sc}22;color:${sc}">${ic}</div><div class="am"><div>${n}</div><div>${d} · ${esc(info(a))}</div></div><div class="av" style="color:${sc}">${sl}</div></div>
-   ${DP() ? '' : `<button class="switch ${a.status !== 'paused' ? 'on' : ''}" data-a="${a.name}" ${a.name === 'risk' && a.open ? 'disabled' : ''}></button>`}
-   <div class="dec">${ds[i].rows.length ? ds[i].rows.slice(0, 6).map(r => `<div><span class="mono">${tmB(r.ts)}</span><span>${esc(r.coin || r.mint.slice(0, 6))}</span><span style="color:${/kill|reject|fail|stop/i.test(r.verdict) ? '#FF4500' : '#34C759'}">${esc(r.verdict)}</span><span>${esc(r.reason || '')}</span></div>`).join('') : '<div style="color:#8E8E93">Sin decisiones todavía</div>'}</div></div>`; }).join('');
+  V.innerHTML = `<h3 style="margin-top:8px">Agentes <span class="ss">${st.agents.filter(a => a.status === 'running').length} de ${st.agents.length} activos</span></h3>` + st.agents.map((a, i) => agCard(a, ds[i].rows)).join('');
   V.querySelectorAll('.switch').forEach(b => b.onclick = async () => { if (b.disabled) return; await api(`agents/${b.dataset.a}/${b.classList.contains('on') ? 'pause' : 'resume'}`, { method: 'POST' }); render(); });
 }
 async function activity() {
