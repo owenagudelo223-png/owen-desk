@@ -2,8 +2,11 @@
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 // token: from #t= once, then localStorage. Never sent anywhere but our own /api.
 (function () { const m = location.hash.match(/[#&]t=([^&]+)/); if (m) { localStorage.setItem('desk_t', decodeURIComponent(m[1])); const g = location.hash.match(/[#&]go=([^&]+)/); history.replaceState(null, '', location.pathname + '#/' + (g ? decodeURIComponent(g[1]) : 'home')); } })();
-(function () { const m = location.hash.match(/[#&]d=([^&]+)/); if (m) { localStorage.setItem('desk_d', decodeURIComponent(m[1])); const g = location.hash.match(/[#&]go=([^&]+)/); history.replaceState(null, '', location.pathname + '#/' + (g ? decodeURIComponent(g[1]) : 'home')); } })();
-const DP = () => location.protocol === 'https:' && location.hostname.endsWith('github.io') ? (localStorage.getItem('desk_d') || '') : '';
+const GH = location.protocol === 'https:' && location.hostname.endsWith('github.io');
+(function () { const m = location.hash.match(/[#&?]d=([^&]+)/); if (m) { try { localStorage.setItem('desk_d', decodeURIComponent(m[1])); } catch (e) {} } })();
+function hashD() { const m = location.hash.match(/[#&?]d=([^&]+)/); return m ? decodeURIComponent(m[1]) : ''; }
+function keepD() { if (!GH) return; const d = DP(); if (!d || hashD()) return; let h = location.hash || '#/home'; if (h === '#') h = '#/home'; h += (h.includes('?') ? '&' : '?') + 'd=' + encodeURIComponent(d); history.replaceState(null, '', location.pathname + location.search + h); }
+const DP = () => { if (!GH) return ''; let v = ''; try { v = localStorage.getItem('desk_d') || ''; } catch (e) {} return v || hashD(); };
 const TOK = () => localStorage.getItem('desk_t') || '';
 const $ = s => document.querySelector(s), V = $('#view');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -11,6 +14,7 @@ const usd = (v, d = 2) => v == null ? 'n/a' : '$' + Number(v).toLocaleString('en
 const kusd = v => v == null ? 'n/a' : v >= 1e6 ? '$' + (v / 1e6).toFixed(2) + 'M' : v >= 1e3 ? '$' + (v / 1e3).toFixed(1) + 'K' : usd(v);
 const tm = ts => new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 async function api(p, opt = {}) {
+  if (GH && !DP()) throw new Error('nopath');
   if (DP()) { if (opt.method && opt.method !== 'GET') throw new Error('read-only view (use Telegram to control the desk)');
     const r = await fetch('d/' + DP() + '/' + p.replace(/[?=\/]/g, '_') + '.json?v=' + Date.now(), { cache: 'no-store' });
     if (!r.ok) throw new Error(r.status === 404 ? '404' : r.status); return r.json(); }
@@ -19,7 +23,7 @@ async function api(p, opt = {}) {
 }
 let S = { range: 'LIVE', state: null, lastBal: null };
 function paperBadge(mode) { return mode === 'PAPER' ? '<span class="pill paper">PAPER</span>' : '<span class="pill" style="background:#2c2c2e">LIVE</span>'; }
-function errView(e) { V.innerHTML = e.message === 'unauthorized' ? '<div class="err">Sin sesión. Abre la app una vez con su enlace #t=.</div>' : `<div class="err">No se pudo conectar con el desk · ${esc(e.message)}</div>`; }
+function errView(e) { V.innerHTML = e.message === 'nopath' ? '<div class="err">Abre tu enlace secreto una vez en Safari y vuelve a agregar la app</div>' : e.message === 'unauthorized' ? '<div class="err">Sin sesión. Abre la app una vez con su enlace #t=.</div>' : `<div class="err">No se pudo conectar con el desk · ${esc(e.message)}</div>`; }
 function odometer(el, val) {
   const s = usd(val), old = el.dataset.v || ''; el.dataset.v = s;
   el.innerHTML = [...s].map(ch => `<span>${esc(ch)}</span>`).join('');
@@ -251,7 +255,7 @@ function splashDone() { const sp = document.getElementById('splash'); if (!sp ||
   ls.forEach((l, i) => setTimeout(() => l.classList.add('ok'), RM ? 0 : 250 + i * 280));
   setTimeout(() => { sp.classList.add('out'); setTimeout(() => sp.remove(), 500); }, RM ? 100 : 250 + ls.length * 280 + 500); }
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => location.hash = '#/' + b.dataset.tab);
-addEventListener('hashchange', render); render();
+keepD(); addEventListener('hashchange', () => { keepD(); render(); }); render();
 if (DP()) setInterval(() => { if (/home|agents|activity|^#?$/.test(location.hash)) render(); }, 30000);
 else if (TOK() && window.EventSource) { const es = new EventSource('/api/stream?t=' + encodeURIComponent(TOK()));
   let tmr; const soon = () => { clearTimeout(tmr); tmr = setTimeout(() => { if (/home|agents|^#?$/.test(location.hash) || location.hash === '#/home') render(); }, 800); };
