@@ -6,7 +6,7 @@ const Charts = (() => {
     const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h); return [c, w, h];
   }
   function line(cv, pts, start, marks) {
-    const [c, w, h] = setup(cv, matchMedia('(min-width:900px)').matches ? 320 : 220); const top = 56, bot = h - 8;
+    const [c, w, h] = setup(cv, matchMedia('(min-width:900px)').matches ? 190 : 220); const top = 56, bot = h - 8;
     if (!pts.length) { c.fillStyle = 'rgba(235,235,245,0.3)'; c.font = '13px -apple-system'; c.textAlign = 'center'; c.fillText('No balance points yet', w / 2, h / 2); return; }
     const t0 = pts[0][0], t1 = Math.max(pts[pts.length - 1][0], t0 + 1);
     let lo = Math.min(start, ...pts.map(p => p[1])), hi = Math.max(start, ...pts.map(p => p[1])); if (hi - lo < 1e-9) { hi += 1; lo -= 1; }

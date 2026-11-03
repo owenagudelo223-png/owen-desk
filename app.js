@@ -92,7 +92,7 @@ function agInfo(a) { return a.name === 'scanner' ? `${a.count} pools · ${a.wait
 function agCard(a, rows) { const [n, ic, d] = AG[a.name] || [a.name, '•', '']; const [sl, sc] = STX[a.status] || [a.status, '#8E8E93'];
   return `<div class="sheet"><div class="arow" style="border:0;padding:0"><div class="aic" style="background:${sc}22;color:${sc}">${ic}</div><div class="am"><div>${n}</div><div>${d} · ${esc(agInfo(a))}</div></div><div class="av" style="color:${sc}">${sl}</div></div>
    ${DP() || !rows ? '' : `<button class="switch ${a.status !== 'paused' ? 'on' : ''}" data-a="${a.name}" ${a.name === 'risk' && a.open ? 'disabled' : ''}></button>`}
-   ${rows ? `<div class="dec">${rows.length ? rows.slice(0, 6).map(r => `<div><span class="mono">${tmB(r.ts)}</span><span>${esc(r.coin || r.mint.slice(0, 6))}</span><span style="color:${/kill|reject|fail|stop/i.test(r.verdict) ? '#FF4500' : '#34C759'}">${esc(r.verdict)}</span><span>${esc(r.reason || '')}</span></div>`).join('') : '<div style="color:#8E8E93">Sin decisiones todavía</div>'}</div>` : ''}</div>`; }
+   ${rows ? `<div class="dec">${rows.length ? rows.slice(0, 6).map(r => `<div><span class="mono">${tmB(r.ts)}</span><span>${esc(r.coin || r.mint.slice(0, 6))}</span><span style="color:${/kill|reject|fail|stop|^red$/i.test(r.verdict) ? '#FF4500' : '#34C759'}">${esc(r.verdict)}</span><span>${esc(r.reason || '')}</span></div>`).join('') : '<div style="color:#8E8E93;display:block">Sin decisiones todavía</div>'}</div>` : ''}</div>`; }
 async function agents() {
   const st = await api('state'); S.state = st; const ds = await Promise.all(st.agents.map(a => api(`agents/${a.name}/decisions`).catch(() => ({ rows: [] }))));
   setStatus(st.mode);
