@@ -22,7 +22,7 @@ const Charts = (() => {
       const xe = P.length === 1 ? w * k : X(P[P.length - 1][0]); c.lineTo(xe, bot); c.lineTo(X(P[0][0]), bot); c.closePath(); c.fillStyle = g; c.fill();
       if (k >= 1) { c.fillStyle = '#00E676'; c.beginPath(); c.arc(Math.min(xe, w - 4), Y(P[P.length - 1][1]), 4, 0, 7); c.fill(); } };
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, key = cv.id + pts.length;
-    if (reduce || cv.dataset.k === key) draw(1); else { cv.dataset.k = key; const t0a = performance.now(); (function f(t) { const k = Math.min(1, (t - t0a) / 900); draw(1 - Math.pow(1 - k, 3)); if (k < 1) requestAnimationFrame(f); })(t0a); }
+    if (reduce || cv.dataset.k === key) draw(1); else { cv.dataset.k = key; const t0a = performance.now(); setTimeout(() => { if (cv.dataset.k === key) draw(1); }, 1100); (function f(t) { const k = Math.min(1, (t - t0a) / 900); draw(1 - Math.pow(1 - k, 3)); if (k < 1) requestAnimationFrame(f); })(t0a); }
     const rows = []; c.font = '600 12px -apple-system';
     (marks || []).forEach(m => {
       if (m.ts < t0) return; const x = X(m.ts), tw = c.measureText(m.text).width + 14; let r = 0;
