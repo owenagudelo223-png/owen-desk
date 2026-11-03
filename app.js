@@ -198,7 +198,10 @@ async function coin(mint) {
     <div class="st"><div class="sl">Holders</div><div class="sv">${c.holders != null ? Number(c.holders).toLocaleString() : 'n/a'}</div></div><div class="st"><div class="sl">Vol 24h</div><div class="sv">${kusd(c.v24)}</div></div></div>
    ${p ? `<h3>Tu posición</h3><div class="feedl" style="padding:6px 16px"><div class="row"><span>Invertido</span><span>${usd(p.size_usd)}</span></div><div class="row"><span>Precio de compra</span><span class="mono">$${Number(p.entry_price).toPrecision(4)}</span></div>
      <div class="row"><span>Stop</span><span class="mono" style="color:#FF3B30">$${Number(p.stop_price).toPrecision(4)} · -${p.stop_pct}%</span></div>
-     <div class="row"><span>Trailing</span><span>${p.trail_line ? '$' + Number(p.trail_line).toPrecision(4) : 'no activo'}</span></div>
+${p.mode_label ? `<div class="row"><span>Modo</span><span style="color:#00E676">${esc(p.mode_label)}</span></div>` : `
+     <div class="row"><span>Trailing</span><span>${p.trail_line ? '$' + Number(p.trail_line).toPrecision(4) : 'no activo'}</span></div>`}
+     ${p.compare ? `<div class="row"><span>Comparación</span><span class="mono" style="font-size:12px">${esc(p.compare)}</span></div>` : ''}
+     ${p.compare_total ? `<div class="row"><span>Total</span><span style="font-size:12px">${esc(p.compare_total)}</span></div>` : ''}
      <div class="row" style="border:0"><span>${open ? 'Cierra en' : 'Cerrada'}</span><span>${open ? Math.floor(p.timeout_left_s / 3600) + 'h ' + Math.floor(p.timeout_left_s % 3600 / 60) + 'm' : esc(p.exit_reason)}</span></div></div>` : ''}
    <h3>Info</h3><div class="feedl" style="padding:6px 16px"><div class="row"><span>Mint</span><span class="mono">${short(mint)}</span></div><div class="row" style="border:0"><span>Auditoría</span><a href="#/audit/${esc(mint)}" style="color:#00E676">${esc(c.shield || 'ver')} ›</a></div></div>
    <a class="btn" href="${esc(c.coin_url)}">Ver en FOMO</a>`;
